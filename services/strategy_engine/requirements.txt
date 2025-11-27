@@ -1,0 +1,7 @@
+pandas
+numpy
+ccxt
+redis
+sqlalchemy
+psycopg2-binary
+pydantic-settings
