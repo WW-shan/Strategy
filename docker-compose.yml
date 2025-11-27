@@ -1,54 +1,42 @@
 version: "3.8"
 
 services:
-  # ----------------------------------------------------
-  # 1. PostgreSQL Database Service
-  # ----------------------------------------------------
+  # Database Service (Simulating your dedicated DB VPS)
   postgres:
     image: postgres:15-alpine
-    container_name: strategy-postgres-1
-    restart: always
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: strategy_db
     volumes:
-      - strategy_postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
-    # === 关键修复：添加健康检查 ===
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d strategy_db"]
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s # 初始等待10秒，让Postgres完成启动
-    # ===============================
+    networks:
+      - strategy_net
 
-  # ----------------------------------------------------
-  # 2. FastAPI/SQLAdmin Application Service
-  # ----------------------------------------------------
+  # Admin Service (Simulating your Web/Admin VPS)
   admin_service:
-    build: .
-    container_name: strategy-admin_service-1
-    restart: always
+    build: ./services/admin
     ports:
       - "8000:8000"
-
-    # === 关键修复：依赖于健康检查 ===
+    environment:
+      # If connecting to a remote VPS, change 'postgres' to the IP address
+      - DATABASE_URL=postgresql://user:password@postgres:5432/strategy_db
     depends_on:
       postgres:
-        condition: service_healthy # 只有当 'postgres' 报告健康后才启动
-    # ===============================
+        condition: service_healthy
+    networks:
+      - strategy_net
 
-    # 确保应用容器内能读取到数据库连接字符串
-    environment:
-      # DATABASE_URL 必须匹配 postgres 服务的配置
-      DATABASE_URL: postgresql://user:password@postgres:5432/strategy_db
-
-# ----------------------------------------------------
-# 3. Volumes (数据持久化)
-# ----------------------------------------------------
 volumes:
-  strategy_postgres_data:
+  postgres_data:
+
+networks:
+  strategy_net:
+    driver: bridge
