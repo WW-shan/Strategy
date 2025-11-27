@@ -1,17 +1,25 @@
 version: "3.8"
 
 services:
-  # Database Service (Simulating your dedicated DB VPS)
-  postgres:
+  # Primary Database (Master - Writes)
+  postgres_primary:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: strategy_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./postgres/primary_init:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
+    command: |
+      postgres 
+      -c wal_level=replica 
+      -c hot_standby=on 
+      -c max_wal_senders=10 
+      -c max_replication_slots=10 
+      -c hot_standby_feedback=on
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d strategy_db"]
       interval: 5s
@@ -20,22 +28,40 @@ services:
     networks:
       - strategy_net
 
-  # Admin Service (Simulating your Web/Admin VPS)
+  # Replica Database (Slave - Reads & Backup)
+  postgres_replica:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: strategy_db
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./postgres/replica_entrypoint.sh:/replica_entrypoint.sh
+    entrypoint: ["bash", "/replica_entrypoint.sh"]
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+    networks:
+      - strategy_net
+
+  # Admin Service
   admin_service:
     build: ./services/admin
     ports:
       - "8000:8000"
     environment:
-      # If connecting to a remote VPS, change 'postgres' to the IP address
-      - DATABASE_URL=postgresql://user:password@postgres:5432/strategy_db
+      # Connect to Primary for now (Read/Write)
+      - DATABASE_URL=postgresql://user:password@postgres_primary:5432/strategy_db
     depends_on:
-      postgres:
+      postgres_primary:
         condition: service_healthy
     networks:
       - strategy_net
 
 volumes:
-  postgres_data:
+  postgres_primary_data:
+  postgres_replica_data:
 
 networks:
   strategy_net:

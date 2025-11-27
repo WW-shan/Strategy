@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  # Primary Database
+  postgres_primary:
+    image: postgres:15-alpine
+    container_name: strategy_postgres_primary
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password # CHANGE THIS!
+      POSTGRES_DB: strategy_db
+      PGPASSWORD: replicator_password # Password for replication user
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./init_scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432" # Exposed for Replica to connect
+    command: |
+      postgres 
+      -c wal_level=replica 
+      -c hot_standby=on 
+      -c max_wal_senders=10 
+      -c max_replication_slots=10 
+      -c hot_standby_feedback=on
+    restart: always
+    networks:
+      - strategy_net
+
+  # Admin Service
+  admin_service:
+    image: strategy-admin:latest
+    build: ../../services/admin
+    container_name: strategy_admin
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres_primary:5432/strategy_db
+    depends_on:
+      - postgres_primary
+    restart: always
+    networks:
+      - strategy_net
+
+volumes:
+  postgres_primary_data:
+
+networks:
+  strategy_net:
+    driver: bridge

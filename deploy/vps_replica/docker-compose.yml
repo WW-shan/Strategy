@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  # Replica Database
+  postgres_replica:
+    image: postgres:15-alpine
+    container_name: strategy_postgres_replica
+    environment:
+      PRIMARY_HOST: 1.1.1.1 # <--- REPLACE WITH VPS A IP ADDRESS
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password # CHANGE THIS!
+      POSTGRES_DB: strategy_db
+      PGPASSWORD: replicator_password # Password for replication user
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./entrypoint.sh:/replica_entrypoint.sh
+    entrypoint: ["bash", "/replica_entrypoint.sh"]
+    restart: always
+    # No ports exposed needed unless you want to read from outside
+    # ports:
+    #   - "5432:5432"
+
+volumes:
+  postgres_replica_data:
