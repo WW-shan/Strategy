@@ -4,7 +4,7 @@ from database import engine, Base
 from models import User, Strategy, Subscription
 
 # Create tables (for simplicity in dev, use Alembic in prod)
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Strategy Admin Panel")
 
