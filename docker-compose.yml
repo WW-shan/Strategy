@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  # Database Service (Simulating your dedicated DB VPS)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: strategy_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - strategy_net
+
+  # Admin Service (Simulating your Web/Admin VPS)
+  admin_service:
+    build: ./services/admin
+    ports:
+      - "8000:8000"
+    environment:
+      # If connecting to a remote VPS, change 'postgres' to the IP address
+      - DATABASE_URL=postgresql://user:password@postgres:5432/strategy_db
+    depends_on:
+      - postgres
+    networks:
+      - strategy_net
+
+volumes:
+  postgres_data:
+
+networks:
+  strategy_net:
+    driver: bridge
