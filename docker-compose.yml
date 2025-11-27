@@ -5,14 +5,14 @@ services:
   postgres_primary:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: strategy_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_primary_data:/var/lib/postgresql/data
-      - ./postgres/primary_init:/docker-entrypoint-initdb.d
+      # - ./postgres/primary_init:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
     command: |
       postgres 
       -c wal_level=replica 
@@ -21,7 +21,7 @@ services:
       -c max_replication_slots=10 
       -c hot_standby_feedback=on
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d strategy_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,39 +29,55 @@ services:
       - strategy_net
 
   # Replica Database (Slave - Reads & Backup)
-  postgres_replica:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: strategy_db
-    volumes:
-      - postgres_replica_data:/var/lib/postgresql/data
-      - ./postgres/replica_entrypoint.sh:/replica_entrypoint.sh
-    entrypoint: ["bash", "/replica_entrypoint.sh"]
-    depends_on:
-      postgres_primary:
-        condition: service_healthy
-    networks:
-      - strategy_net
+  # postgres_replica:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #   volumes:
+  #     - postgres_replica_data:/var/lib/postgresql/data
+  #     - ./postgres/replica_entrypoint.sh:/replica_entrypoint.sh
+  #   entrypoint: ["bash", "/replica_entrypoint.sh"]
+  #   depends_on:
+  #     postgres_primary:
+  #       condition: service_healthy
+  #   networks:
+  #     - strategy_net
 
   # Admin Service
   admin_service:
     build: ./services/admin
     ports:
-      - "8000:8000"
+      - "${ADMIN_PORT}:${ADMIN_PORT}"
     environment:
-      # Connect to Primary for now (Read/Write)
-      - DATABASE_URL=postgresql://user:password@postgres_primary:5432/strategy_db
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       postgres_primary:
         condition: service_healthy
     networks:
       - strategy_net
 
-volumes:
-  postgres_primary_data:
-  postgres_replica_data:
+  # Bot Service
+  bot_service:
+    build: ./services/bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_API_URL=http://admin_service:${ADMIN_PORT}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - admin_service
+      - redis
+    networks:
+      - strategy_net
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
+    networks:
+      - strategy_net
 
 networks:
   strategy_net:

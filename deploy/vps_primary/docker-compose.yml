@@ -6,15 +6,15 @@ services:
     image: postgres:15-alpine
     container_name: strategy_postgres_primary
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password # CHANGE THIS!
-      POSTGRES_DB: strategy_db
-      PGPASSWORD: replicator_password # Password for replication user
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD}
     volumes:
       - postgres_primary_data:/var/lib/postgresql/data
       - ./init_scripts:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432" # Exposed for Replica to connect
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}" # Exposed for Replica to connect
     command: |
       postgres 
       -c wal_level=replica 
@@ -26,17 +26,12 @@ services:
     networks:
       - strategy_net
 
-  # Admin Service
-  admin_service:
-    image: strategy-admin:latest
-    build: ../../services/admin
-    container_name: strategy_admin
+  # Redis
+  redis:
+    image: redis:alpine
+    container_name: strategy_redis
     ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres_primary:5432/strategy_db
-    depends_on:
-      - postgres_primary
+      - "${REDIS_PORT}:${REDIS_PORT}"
     restart: always
     networks:
       - strategy_net

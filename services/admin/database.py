@@ -4,7 +4,10 @@ from sqlalchemy.orm import sessionmaker
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql://user:password@postgres:5432/strategy_db"
+    DATABASE_URL: str
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin"
+    SECRET_KEY: str = "supersecretkey"
 
     class Config:
         env_file = ".env"

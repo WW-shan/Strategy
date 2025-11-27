@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  # Admin Service
+  admin_service:
+    image: strategy-admin:latest
+    build: ../../services/admin
+    container_name: strategy_admin
+    ports:
+      - "${ADMIN_PORT}:${ADMIN_PORT}"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+    restart: always
+    networks:
+      - strategy_net
+
+  # Bot Service
+  bot_service:
+    image: strategy-bot:latest
+    build: ../../services/bot
+    container_name: strategy_bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_API_URL=${ADMIN_API_URL}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - admin_service
+    restart: always
+    networks:
+      - strategy_net
+
+  # Strategy Engine (Placeholder for future)
+  # strategy_engine:
+  #   image: strategy-engine:latest
+  #   build: ../../services/strategy_engine
+  #   environment:
+  #     - DATABASE_URL=${DATABASE_URL}
+  #     - REDIS_URL=${REDIS_URL}
+  #   restart: always
+  #   networks:
+  #     - strategy_net
+
+networks:
+  strategy_net:
+    driver: bridge
