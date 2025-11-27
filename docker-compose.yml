@@ -1,36 +1,54 @@
 version: "3.8"
 
 services:
-  # Database Service (Simulating your dedicated DB VPS)
+  # ----------------------------------------------------
+  # 1. PostgreSQL Database Service
+  # ----------------------------------------------------
   postgres:
     image: postgres:15-alpine
+    container_name: strategy-postgres-1
+    restart: always
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: strategy_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - strategy_postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    networks:
-      - strategy_net
 
-  # Admin Service (Simulating your Web/Admin VPS)
+    # === 关键修复：添加健康检查 ===
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d strategy_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s # 初始等待10秒，让Postgres完成启动
+    # ===============================
+
+  # ----------------------------------------------------
+  # 2. FastAPI/SQLAdmin Application Service
+  # ----------------------------------------------------
   admin_service:
-    build: ./services/admin
+    build: .
+    container_name: strategy-admin_service-1
+    restart: always
     ports:
       - "8000:8000"
-    environment:
-      # If connecting to a remote VPS, change 'postgres' to the IP address
-      - DATABASE_URL=postgresql://user:password@postgres:5432/strategy_db
+
+    # === 关键修复：依赖于健康检查 ===
     depends_on:
-      - postgres
-    networks:
-      - strategy_net
+      postgres:
+        condition: service_healthy # 只有当 'postgres' 报告健康后才启动
+    # ===============================
 
+    # 确保应用容器内能读取到数据库连接字符串
+    environment:
+      # DATABASE_URL 必须匹配 postgres 服务的配置
+      DATABASE_URL: postgresql://user:password@postgres:5432/strategy_db
+
+# ----------------------------------------------------
+# 3. Volumes (数据持久化)
+# ----------------------------------------------------
 volumes:
-  postgres_data:
-
-networks:
-  strategy_net:
-    driver: bridge
+  strategy_postgres_data:
