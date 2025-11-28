@@ -12,7 +12,7 @@ done
 rm -rf /var/lib/postgresql/data/*
 
 # Perform base backup
-PGPASSWORD=replicator_password pg_basebackup -h postgres_primary -D /var/lib/postgresql/data -U replicator -v -P -X stream -R -w
+pg_basebackup -h postgres_primary -D /var/lib/postgresql/data -U replicator -v -P -X stream -R -w
 
 # Start PostgreSQL
 exec docker-entrypoint.sh postgres

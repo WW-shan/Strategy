@@ -14,7 +14,7 @@ services:
       - postgres_primary_data:/var/lib/postgresql/data
       - ./init_scripts:/docker-entrypoint-initdb.d
     ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}" # Exposed for Replica to connect
+      - "5432:5432"
     command: |
       postgres 
       -c wal_level=replica 
@@ -23,22 +23,6 @@ services:
       -c max_replication_slots=10 
       -c hot_standby_feedback=on
     restart: always
-    networks:
-      - strategy_net
-
-  # Redis
-  redis:
-    image: redis:alpine
-    container_name: strategy_redis
-    ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
-    restart: always
-    networks:
-      - strategy_net
 
 volumes:
   postgres_primary_data:
-
-networks:
-  strategy_net:
-    driver: bridge

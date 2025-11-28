@@ -12,3 +12,4 @@ pyvenv.cfg
 .env.*.local
 **/.env*
 .envrc
+!.env.example

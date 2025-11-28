@@ -7,8 +7,8 @@ services:
     build: ../../services/strategy_engine
     container_name: strategy_engine
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${VPS_PRIMARY_IP}:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://${VPS_APP_IP}:6379/0
       - BINANCE_API_KEY=${BINANCE_API_KEY}
       - BINANCE_SECRET_KEY=${BINANCE_SECRET_KEY}
     restart: always

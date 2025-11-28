@@ -1,0 +1,186 @@
+version: "3.8"
+
+services:
+  # ==========================================
+  # 1. 应用节点服务 (VPS App)
+  # ==========================================
+  admin_service:
+    image: strategy-admin:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_primary:5432/${POSTGRES_DB}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+    ports:
+      - "${ADMIN_PORT}:8000"
+    networks:
+      - strategy_overlay_net
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.role == app]
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${ADMIN_PORT}/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  bot_service:
+    image: strategy-bot:latest
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_API_URL=http://admin_service:${ADMIN_PORT}
+      - REDIS_URL=redis://redis:6379/0
+    networks:
+      - strategy_overlay_net
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.role == app]
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      admin_service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - strategy_overlay_net
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.role == app]
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 2. 主数据库节点服务 (VPS Primary)
+  # ==========================================
+  postgres_primary:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD}
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+    configs:
+      - source: init_replication_script
+        target: /docker-entrypoint-initdb.d/01_init_replication.sh
+        mode: 0755
+    networks:
+      - strategy_overlay_net
+    command: |
+      postgres 
+      -c wal_level=replica 
+      -c hot_standby=on 
+      -c max_wal_senders=10 
+      -c max_replication_slots=10 
+      -c hot_standby_feedback=on
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.role == primary_db]
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================
+  # 3. 从数据库节点服务 (VPS Replica)
+  # ==========================================
+  postgres_replica:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGPASSWORD: ${REPLICATOR_PASSWORD}
+      PRIMARY_HOST: postgres_primary
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    configs:
+      - source: replica_entrypoint_script
+        target: /replica_entrypoint.sh
+        mode: 0755
+    entrypoint: ["bash", "/replica_entrypoint.sh"]
+    networks:
+      - strategy_overlay_net
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.role == replica_db]
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+
+  # ==========================================
+  # 4. 策略节点服务 (VPS Strategy)
+  # ==========================================
+  strategy_engine:
+    image: strategy-engine:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_primary:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - BINANCE_API_KEY=${BINANCE_API_KEY}
+      - BINANCE_SECRET_KEY=${BINANCE_SECRET_KEY}
+    networks:
+      - strategy_overlay_net
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.role == strategy]
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+# ==========================================
+# 网络、卷与配置定义
+# ==========================================
+networks:
+  strategy_overlay_net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  postgres_primary_data:
+  postgres_replica_data:
+
+configs:
+  init_replication_script:
+    file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
+  replica_entrypoint_script:
+    file: ./deploy/vps_replica/entrypoint.sh

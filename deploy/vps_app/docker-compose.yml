@@ -7,9 +7,9 @@ services:
     build: ../../services/admin
     container_name: strategy_admin
     ports:
-      - "${ADMIN_PORT}:${ADMIN_PORT}"
+      - "${ADMIN_PORT}:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_primary:5432/${POSTGRES_DB}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - SECRET_KEY=${SECRET_KEY}
@@ -24,10 +24,20 @@ services:
     container_name: strategy_bot
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
-      - ADMIN_API_URL=${ADMIN_API_URL}
-      - REDIS_URL=${REDIS_URL}
+      - ADMIN_API_URL=http://admin_service:${ADMIN_PORT}
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       - admin_service
+    restart: always
+    networks:
+      - strategy_net
+
+  # Redis
+  redis:
+    image: redis:alpine
+    container_name: strategy_redis
+    ports:
+      - "6379:6379"
     restart: always
     networks:
       - strategy_net
