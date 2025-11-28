@@ -5,7 +5,7 @@ services:
   # 1. 应用节点服务 (VPS App)
   # ==========================================
   admin_service:
-    image: strategy-admin:latest
+    image: wwshan/strategy-admin:latest
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_primary:5432/${POSTGRES_DB}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
@@ -22,7 +22,8 @@ services:
       restart_policy:
         condition: on-failure
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${ADMIN_PORT}/docs || exit 1"]
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:${ADMIN_PORT}/docs || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -34,7 +35,7 @@ services:
         condition: service_healthy
 
   bot_service:
-    image: strategy-bot:latest
+    image: wwshan/strategy-bot:latest
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - ADMIN_API_URL=http://admin_service:${ADMIN_PORT}
@@ -147,7 +148,7 @@ services:
   # 4. 策略节点服务 (VPS Strategy)
   # ==========================================
   strategy_engine:
-    image: strategy-engine:latest
+    image: wwshan/strategy-engine:latest
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_primary:5432/${POSTGRES_DB}
       - REDIS_URL=redis://redis:6379/0
