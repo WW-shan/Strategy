@@ -17,8 +17,7 @@ build_and_push() {
 
     echo "---------------------------------------------------"
     echo "🔨 构建镜像: $IMAGE_NAME"
-    # 使用 --platform linux/amd64 确保在 VPS 上能运行 (如果您的开发机是 M1/M2 Mac)
-    docker build --platform linux/amd64 -t "$IMAGE_NAME" "$BUILD_DIR"
+    docker build --no-cache --platform linux/amd64 -t "$IMAGE_NAME" "$BUILD_DIR"
 
     echo "⬆️  推送镜像: $IMAGE_NAME"
     docker push "$IMAGE_NAME"
