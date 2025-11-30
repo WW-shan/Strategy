@@ -23,7 +23,7 @@ services:
         condition: on-failure
     healthcheck:
       test:
-        ["CMD-SHELL", "curl -f http://localhost:${ADMIN_PORT}/docs || exit 1"]
+        ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
