@@ -29,10 +29,8 @@ services:
       retries: 3
       start_period: 20s
     depends_on:
-      postgres_primary:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres_primary
+      - redis
 
   bot_service:
     image: wwshan/strategy-bot:latest
@@ -49,10 +47,8 @@ services:
       restart_policy:
         condition: on-failure
     depends_on:
-      admin_service:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - admin_service
+      - redis
 
   redis:
     image: redis:7-alpine
@@ -141,8 +137,7 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
-      postgres_primary:
-        condition: service_healthy
+      - postgres_primary
 
   # ==========================================
   # 4. 策略节点服务 (VPS Strategy)
@@ -163,10 +158,8 @@ services:
       restart_policy:
         condition: on-failure
     depends_on:
-      postgres_primary:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres_primary
+      - redis
 
 # ==========================================
 # 网络、卷与配置定义
