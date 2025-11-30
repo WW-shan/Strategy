@@ -48,12 +48,16 @@ for dir in "${DIRS[@]}"; do
         
         # 创建指向根目录 .env 的软链接
         # ../../.env 表示向上两级找到根目录的 .env
+        # 尝试创建软链接 (Windows Git Bash 可能会创建副本)
         ln -s ../../.env .env
         
         if [ -L ".env" ]; then
-            echo "  ✅ 链接创建成功"
+            echo "  ✅ 软链接创建成功"
+        elif [ -f ".env" ]; then
+            echo "  ⚠️  Windows提示: 已创建文件副本 (非软链接)"
+            echo "      注意: 修改根目录 .env 后，请重新运行此脚本以同步更改"
         else
-            echo "  ❌ 链接创建失败"
+            echo "  ❌ 创建失败"
         fi
         
         # 返回根目录
