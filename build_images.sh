@@ -8,7 +8,7 @@ DOCKER_USERNAME="wwshan"
 
 echo "🐳 正在登录 Docker Hub..."
 # 如果您已经登录过，可以注释掉下面这行，或者保留它以确保登录状态
-# docker login
+docker login
 
 build_and_push() {
     local SERVICE_NAME=$1
