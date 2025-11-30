@@ -34,6 +34,9 @@ rsync -avz --quiet \
 echo "🐳 执行 Swarm 部署..."
 ssh "$SSH_USER@$MANAGER_IP" "
     cd $REMOTE_DIR && \
+    # 加载环境变量
+    export \$(cat .env | grep -v '#' | xargs) && \
+    
     # 重新部署 Stack (Swarm 会自动拉取新镜像并更新服务)
     docker stack deploy -c docker-stack.yml strategy_cluster && \
     
