@@ -30,6 +30,8 @@ services:
     depends_on:
       - postgres_primary
       - redis
+    dns:
+      - 127.0.0.11
 
   bot_service:
     image: wwshan/strategy-bot:latest
