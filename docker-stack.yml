@@ -83,7 +83,7 @@ services:
         mode: 0755
     networks:
       - strategy_overlay_net
-    command: 
+    command:
       - "postgres"
       - "-c"
       - "wal_level=replica"
@@ -172,8 +172,6 @@ networks:
   strategy_overlay_net:
     driver: overlay
     attachable: true
-    driver_opts:
-      com.docker.network.driver.mtu: "1350"
 
 volumes:
   postgres_primary_data:
