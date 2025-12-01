@@ -12,7 +12,7 @@ from database import get_db
 import models
 
 # Create tables (for simplicity in dev, use Alembic in prod)
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 class AdminAuth(AuthenticationBackend):
     async def login(self, request: Request) -> bool:
