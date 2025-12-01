@@ -69,7 +69,7 @@ services:
   # 2. 主数据库节点服务 (VPS Primary)
   # ==========================================
   postgres_primary:
-    image: postgres:15-alpine
+    image: postgres:15
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -88,20 +88,23 @@ services:
       replicas: 1
       placement:
         constraints: [node.labels.role == primary_db]
+      update_config:
+        order: stop-first
       restart_policy:
         condition: on-failure
+    stop_grace_period: 20s
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
 
   # ==========================================
   # 3. 从数据库节点服务 (VPS Replica)
   # ==========================================
   postgres_replica:
-    image: postgres:15-alpine
+    image: postgres:15
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
