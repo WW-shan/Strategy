@@ -83,13 +83,7 @@ services:
         mode: 0755
     networks:
       - strategy_overlay_net
-    command: >
-      postgres 
-      -c wal_level=replica 
-      -c hot_standby=on 
-      -c max_wal_senders=10 
-      -c max_replication_slots=10 
-      -c hot_standby_feedback=on
+    command: postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on
     deploy:
       replicas: 1
       placement:
