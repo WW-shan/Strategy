@@ -22,8 +22,7 @@ services:
       restart_policy:
         condition: on-failure
     healthcheck:
-      test:
-        ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -168,6 +167,8 @@ networks:
   strategy_overlay_net:
     driver: overlay
     attachable: true
+    driver_opts:
+      com.docker.network.driver.mtu: "1350"
 
 volumes:
   postgres_primary_data:
