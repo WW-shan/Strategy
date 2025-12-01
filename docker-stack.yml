@@ -114,7 +114,7 @@ services:
     volumes:
       - postgres_replica_data:/var/lib/postgresql/data
     configs:
-      - source: replica_entrypoint_script_v3
+      - source: replica_entrypoint_script_v4
         target: /replica_entrypoint.sh
         mode: 0755
     entrypoint: ["bash", "/replica_entrypoint.sh"]
@@ -172,5 +172,5 @@ volumes:
 configs:
   init_replication_script_v3:
     file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
-  replica_entrypoint_script_v3:
+  replica_entrypoint_script_v4:
     file: ./deploy/vps_replica/entrypoint.sh
