@@ -13,3 +13,4 @@ pyvenv.cfg
 **/.env*
 .envrc
 !.env.example
+.vscode/
