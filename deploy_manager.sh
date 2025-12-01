@@ -12,38 +12,19 @@ else
 fi
 
 # =================配置=================
-# 假设您的 Replica 服务器是 Swarm Manager
-# 如果不是，请修改为 VPS_PRIMARY_IP 或其他
-MANAGER_IP="$VPS_REPLICA_IP" 
-REMOTE_DIR="/root/strategy"
-SSH_USER="${VPS_USER:-root}"
+# 本脚本设计为直接在 Manager 节点上运行
 # =====================================
 
-echo "🚀 开始发布到 Manager 节点: $MANAGER_IP"
+echo "🚀 开始在本地 Manager 节点执行部署..."
 
-# 1. 同步配置文件 (docker-stack.yml, .env, deploy目录)
-echo "📂 同步配置文件..."
-rsync -avz --quiet \
-    --exclude '.git' \
-    --exclude 'venv' \
-    --exclude '__pycache__' \
-    --exclude '.DS_Store' \
-    ./ "$SSH_USER@$MANAGER_IP:$REMOTE_DIR"
-
-# 2. 远程执行部署命令
+# 1. 重新部署 Stack (Swarm 会自动拉取新镜像并更新服务)
 echo "🐳 执行 Swarm 部署..."
-ssh "$SSH_USER@$MANAGER_IP" "
-    cd $REMOTE_DIR && \
-    # 加载环境变量
-    export \$(cat .env | grep -v '#' | xargs) && \
-    
-    # 重新部署 Stack (Swarm 会自动拉取新镜像并更新服务)
-    docker stack deploy -c docker-stack.yml strategy_cluster && \
-    
-    # 强制更新服务以拉取 latest 镜像 (解决 Swarm 不自动拉取 latest 的问题)
-    docker service update --image wwshan/strategy-admin:latest strategy_cluster_admin_service --force --quiet && \
-    docker service update --image wwshan/strategy-bot:latest strategy_cluster_bot_service --force --quiet && \
-    docker service update --image wwshan/strategy-engine:latest strategy_cluster_strategy_engine --force --quiet
-"
+docker stack deploy -c docker-stack.yml strategy_cluster
+
+# 2. 强制更新服务以拉取 latest 镜像 (解决 Swarm 不自动拉取 latest 的问题)
+echo "🔄 强制更新服务镜像..."
+docker service update --image wwshan/strategy-admin:latest strategy_cluster_admin_service --force --quiet
+docker service update --image wwshan/strategy-bot:latest strategy_cluster_bot_service --force --quiet
+docker service update --image wwshan/strategy-engine:latest strategy_cluster_strategy_engine --force --quiet
 
 echo "✅ 发布完成！服务正在后台滚动更新。"
