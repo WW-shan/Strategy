@@ -4,14 +4,6 @@ set -e
 # CONFIGURATION
 echo "Waiting for primary database at $PRIMARY_HOST..."
 
-# Debug: Check network connectivity (Ping)
-echo "Debug: Pinging $PRIMARY_HOST..."
-if ping -c 2 -W 2 "$PRIMARY_HOST"; then
-    echo "Debug: Ping successful"
-else
-    echo "Debug: Ping failed"
-fi
-
 # Debug: Check TCP connectivity using bash /dev/tcp
 echo "Debug: Checking TCP port 5432 on $PRIMARY_HOST..."
 if timeout 5 bash -c "cat < /dev/null > /dev/tcp/$PRIMARY_HOST/5432" 2>/dev/null; then
