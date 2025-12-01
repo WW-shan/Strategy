@@ -4,27 +4,21 @@ set -e
 # CONFIGURATION
 echo "Waiting for primary database at $PRIMARY_HOST..."
 
-# Debug: Install netcat for TCP testing
-echo "Debug: Installing netcat..."
-apk add --no-cache netcat-openbsd
-
-# Debug: Check network connectivity
-echo "Debug: Checking network connectivity to $PRIMARY_HOST..."
-PING_OUTPUT=$(ping -c 2 "$PRIMARY_HOST" 2>&1)
-if [ $? -eq 0 ]; then
-    echo "Debug: Ping to $PRIMARY_HOST successful"
-    echo "Debug: Ping output: $PING_OUTPUT"
+# Debug: Check network connectivity (Ping)
+echo "Debug: Pinging $PRIMARY_HOST..."
+if ping -c 2 -W 2 "$PRIMARY_HOST"; then
+    echo "Debug: Ping successful"
 else
-    echo "Debug: Ping to $PRIMARY_HOST failed"
-    echo "Debug: Ping output: $PING_OUTPUT"
+    echo "Debug: Ping failed"
 fi
 
-# Debug: Check TCP connectivity
+# Debug: Check TCP connectivity using bash /dev/tcp
 echo "Debug: Checking TCP port 5432 on $PRIMARY_HOST..."
-if nc -zv -w 5 "$PRIMARY_HOST" 5432; then
+if timeout 5 bash -c "cat < /dev/null > /dev/tcp/$PRIMARY_HOST/5432" 2>/dev/null; then
     echo "Debug: TCP connection to $PRIMARY_HOST:5432 successful"
 else
     echo "Debug: TCP connection to $PRIMARY_HOST:5432 FAILED"
+    echo "Debug: This usually indicates a Firewall/Security Group issue blocking port 5432 or Overlay network ports (UDP 4789)."
 fi
 
 until pg_isready -h "$PRIMARY_HOST" -p 5432 -U replicator
