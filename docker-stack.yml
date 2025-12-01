@@ -78,7 +78,7 @@ services:
     volumes:
       - postgres_primary_data:/var/lib/postgresql/data
     configs:
-      - source: init_replication_script
+      - source: init_replication_script_v3
         target: /docker-entrypoint-initdb.d/01_init_replication.sh
         mode: 0755
     networks:
@@ -92,6 +92,7 @@ services:
         order: stop-first
       restart_policy:
         condition: on-failure
+    stop_grace_period: 1m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -113,7 +114,7 @@ services:
     volumes:
       - postgres_replica_data:/var/lib/postgresql/data
     configs:
-      - source: replica_entrypoint_script
+      - source: replica_entrypoint_script_v3
         target: /replica_entrypoint.sh
         mode: 0755
     entrypoint: ["bash", "/replica_entrypoint.sh"]
@@ -169,7 +170,7 @@ volumes:
   postgres_replica_data:
 
 configs:
-  init_replication_script:
+  init_replication_script_v3:
     file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
-  replica_entrypoint_script:
+  replica_entrypoint_script_v3:
     file: ./deploy/vps_replica/entrypoint.sh
