@@ -8,4 +8,4 @@ EOSQL
 
 # Configure host based authentication
 # ALLOW REPLICA IP HERE! Replace 0.0.0.0/0 with specific IP for security
-echo "host replication replicator 0.0.0.0/0 trust" >> /var/lib/postgresql/data/pg_hba.conf
+echo "host replication replicator 0.0.0.0/0 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf

@@ -109,8 +109,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PGPASSWORD: ${REPLICATOR_PASSWORD}
-      # 使用 tasks. 前缀绕过 Swarm VIP，直接连接容器实例，解决 Overlay 网络偶发的 VIP 路由问题
-      PRIMARY_HOST: tasks.postgres_primary
+      PRIMARY_HOST: postgres_primary
     volumes:
       - postgres_replica_data:/var/lib/postgresql/data
     configs:
