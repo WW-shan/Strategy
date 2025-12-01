@@ -2,16 +2,34 @@
 set -e
 
 # CONFIGURATION
-echo "Waiting for primary database at $PRIMARY_HOST..."
+echo "Attempting to connect to primary database..."
 
-# Debug: Check TCP connectivity using bash /dev/tcp
-echo "Debug: Checking TCP port 5432 on $PRIMARY_HOST..."
-if timeout 5 bash -c "cat < /dev/null > /dev/tcp/$PRIMARY_HOST/5432" 2>/dev/null; then
-    echo "Debug: TCP connection to $PRIMARY_HOST:5432 successful"
+# 尝试内网连接（Swarm Overlay）
+INTERNAL_HOST="postgres_primary"
+EXTERNAL_HOST="${PRIMARY_HOST_FALLBACK:-}"
+
+echo "Step 1: Testing internal connection to $INTERNAL_HOST..."
+if timeout 5 bash -c "cat < /dev/null > /dev/tcp/$INTERNAL_HOST/5432" 2>/dev/null; then
+    echo "✓ Internal connection successful. Using Overlay network."
+    PRIMARY_HOST="$INTERNAL_HOST"
 else
-    echo "Debug: TCP connection to $PRIMARY_HOST:5432 FAILED"
-    echo "Debug: This usually indicates a Firewall/Security Group issue blocking port 5432 or Overlay network ports (UDP 4789)."
+    echo "✗ Internal connection failed."
+    if [ -n "$EXTERNAL_HOST" ]; then
+        echo "Step 2: Testing fallback connection to $EXTERNAL_HOST..."
+        if timeout 5 bash -c "cat < /dev/null > /dev/tcp/$EXTERNAL_HOST/5432" 2>/dev/null; then
+            echo "✓ Fallback connection successful. Using public IP."
+            PRIMARY_HOST="$EXTERNAL_HOST"
+        else
+            echo "✗ Both internal and external connections failed. Retrying internal..."
+            PRIMARY_HOST="$INTERNAL_HOST"
+        fi
+    else
+        echo "⚠ No fallback IP configured. Will retry internal connection."
+        PRIMARY_HOST="$INTERNAL_HOST"
+    fi
 fi
+
+echo "Using PRIMARY_HOST=$PRIMARY_HOST"
 
 until pg_isready -h "$PRIMARY_HOST" -p 5432 -U replicator
 do
