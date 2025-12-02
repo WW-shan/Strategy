@@ -89,7 +89,7 @@ services:
       - "5432:5432"
     networks:
       - strategy_overlay_net
-    command: "postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on -c max_connections=50 -c log_connections=on -c log_disconnections=on -c log_line_prefix='%t [%p]: user=%u,db=%d,app=%a,client=%h '"
+    command: "postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on -c max_connections=50 -c log_min_duration_statement=1000 -c log_line_prefix='%t [%p] %u@%d: '"
     deploy:
       replicas: 1
       placement:
