@@ -7,7 +7,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 EOSQL
 
 # Configure host based authentication with RESTRICTIVE rules
-# Remove the default trust rules for external connections
+# Remove ALL default permissive rules
+sed -i '/^host.*all.*all.*all/d' /var/lib/postgresql/data/pg_hba.conf
 sed -i '/host.*all.*all.*0.0.0.0\/0/d' /var/lib/postgresql/data/pg_hba.conf
 sed -i '/host.*all.*all.*::\/0/d' /var/lib/postgresql/data/pg_hba.conf
 
