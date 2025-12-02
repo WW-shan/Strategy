@@ -21,9 +21,6 @@ echo "🚀 开始在本地 Manager 节点执行部署..."
 echo "🐳 执行 Swarm 部署..."
 docker stack deploy -c docker-stack.yml strategy_cluster
 
-echo "⏳ 等待 Stack 服务注册 (10秒)..."
-sleep 10
-
 # 2. 强制更新服务以拉取 latest 镜像 (解决 Swarm 不自动拉取 latest 的问题)
 echo "🔄 强制更新服务镜像..."
 docker service update --image wwshan/strategy-admin:latest strategy_cluster_admin_service --force --quiet
