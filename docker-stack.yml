@@ -75,6 +75,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD}
+      VPS_PRIMARY_IP: ${VPS_PRIMARY_IP}
+      VPS_APP_IP: ${VPS_APP_IP}
+      VPS_REPLICA_IP: ${VPS_REPLICA_IP}
+      VPS_STRATEGY_IP: ${VPS_STRATEGY_IP}
     volumes:
       - postgres_primary_data:/var/lib/postgresql/data
     configs:
@@ -85,7 +89,7 @@ services:
       - "5432:5432"
     networks:
       - strategy_overlay_net
-    command: "postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on"
+    command: "postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on -c max_connections=50 -c log_connections=on -c log_disconnections=on -c log_line_prefix='%t [%p]: user=%u,db=%d,app=%a,client=%h '"
     deploy:
       replicas: 1
       placement:
@@ -173,6 +177,8 @@ volumes:
 
 configs:
   init_replication_script:
+    name: init_replication_script_v5
     file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
   replica_entrypoint_script:
+    name: replica_entrypoint_script_v5
     file: ./deploy/vps_replica/entrypoint.sh
