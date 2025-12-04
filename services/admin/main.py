@@ -49,14 +49,10 @@ app = FastAPI(title="Strategy Admin Panel")
 # --- SQLAdmin Views ---
 class UserAdmin(ModelView, model=User):
     column_list = [User.id, User.telegram_id, User.username, User.balance, User.is_active]
-    column_details_list = [User.id, User.telegram_id, User.username, User.full_name, User.balance, User.is_active, User.created_at, User.subscriptions]
+    column_details_list = [User.id, User.telegram_id, User.username, User.full_name, User.balance, User.is_active, User.created_at]
     column_searchable_list = [User.username, User.telegram_id]
     form_columns = [User.telegram_id, User.username, User.full_name, User.balance, User.is_active]
     icon = "fa-solid fa-user"
-    
-    column_formatters_detail = {
-        User.subscriptions: lambda m, a: ", ".join([str(s) for s in m.subscriptions]) if m.subscriptions else "无订阅"
-    }
 
 class StrategyAdmin(ModelView, model=Strategy):
     column_list = [Strategy.id, Strategy.name, Strategy.price_monthly, Strategy.is_active]
