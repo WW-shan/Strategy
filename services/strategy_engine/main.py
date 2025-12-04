@@ -90,7 +90,6 @@ def main():
         db.close()
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
-        return.error(f"Database connection failed: {e}")
         return
 
     # 2. Test Exchange Connection
