@@ -348,6 +348,49 @@ def check_expired_subscriptions():
     finally:
         db.close()
 
+@app.get("/users/{telegram_id}/signals")
+def get_user_signals(telegram_id: str, limit: int = 5, db: Session = Depends(get_db)):
+    """获取用户订阅策略的最近信号历史"""
+    user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
+    if not user:
+        return []
+    
+    # 获取用户活跃订阅的策略ID列表
+    now = datetime.now(CN_TZ).replace(tzinfo=None)
+    active_subs = db.query(models.Subscription).filter(
+        models.Subscription.user_id == user.id,
+        models.Subscription.is_active == True
+    ).all()
+    
+    # 过滤未过期的订阅
+    strategy_ids = []
+    for sub in active_subs:
+        if not sub.end_date or sub.end_date >= now:
+            strategy_ids.append(sub.strategy_id)
+    
+    if not strategy_ids:
+        return []
+    
+    # 查询这些策略的最近信号
+    signals = db.query(models.Signal).filter(
+        models.Signal.strategy_id.in_(strategy_ids)
+    ).order_by(models.Signal.timestamp.desc()).limit(limit).all()
+    
+    result = []
+    for sig in signals:
+        result.append({
+            "id": sig.id,
+            "strategy_id": sig.strategy_id,
+            "strategy_name": sig.strategy.name if sig.strategy else "Unknown",
+            "symbol": sig.symbol,
+            "side": sig.side,
+            "price": float(sig.price),
+            "reason": sig.reason or "",
+            "timestamp": sig.timestamp.strftime("%Y-%m-%d %H:%M:%S") if sig.timestamp else ""
+        })
+    
+    return result
+
 @app.on_event("startup")
 async def startup_event():
     """Start background task for checking expired subscriptions"""

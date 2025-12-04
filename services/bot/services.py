@@ -167,5 +167,9 @@ class AdminAPI:
             "telegram_id": str(telegram_id),
             "strategy_id": strategy_id
         })
+    
+    async def get_user_signals(self, telegram_id: int, limit: int = 5):
+        """获取用户订阅策略的最近信号历史"""
+        return await self._get(f"/users/{telegram_id}/signals?limit={limit}") or []
 
 api_client = AdminAPI()

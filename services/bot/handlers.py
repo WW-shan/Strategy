@@ -193,6 +193,7 @@ async def cb_my_account(callback: types.CallbackQuery):
         for sub in subs:
             text += f"  ✅ <b>{sub['strategy_name']}</b>\n     ⏰ 到期: {sub['end_date']}\n\n"
         kb.append([InlineKeyboardButton(text="🔄 续订策略", callback_data="renew_menu")])
+        kb.append([InlineKeyboardButton(text="📊 信号历史", callback_data="signal_history")])
     else:
         text += "📋 <b>我的订阅</b>\n\n暂无活跃订阅，去策略市场看看吧！"
     
@@ -428,15 +429,48 @@ async def cb_confirm_subscribe(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == "signal_history")
 async def cb_signal_history(callback: types.CallbackQuery):
-    """Show user's signal history (placeholder for now)"""
-    text = (
-        "📊 <b>信号历史</b>\n\n"
-        "━━━━━━━━━━━━━━━━\n\n"
-        "<i>此功能正在开发中...</i>\n\n"
-        "您可以在聊天记录中查看\n"
-        "历史收到的交易信号。\n\n"
-        "━━━━━━━━━━━━━━━━"
-    )
+    """Show user's signal history"""
+    try:
+        signals = await api_client.get_user_signals(callback.from_user.id, limit=5)
+    except Exception:
+        await callback.answer("❌ 加载失败", show_alert=True)
+        return
+    
+    if not signals:
+        text = (
+            "📊 <b>信号历史</b>\n\n"
+            "━━━━━━━━━━━━━━━━\n\n"
+            "<i>暂无信号记录</i>\n\n"
+            "订阅策略后，您将在这里看到\n"
+            "最近收到的交易信号。\n\n"
+            "━━━━━━━━━━━━━━━━"
+        )
+    else:
+        text = (
+            "📊 <b>信号历史</b>\n\n"
+            "━━━━━━━━━━━━━━━━\n\n"
+            "<i>最近5条订阅策略的信号：</i>\n\n"
+        )
+        
+        for i, sig in enumerate(signals, 1):
+            # 不同方向使用不同图标
+            if sig['side'].upper() == 'BUY':
+                icon = "🟢"
+                side_text = "买入"
+            elif sig['side'].upper() == 'SELL':
+                icon = "🔴"
+                side_text = "卖出"
+            else:
+                icon = "🟡"
+                side_text = sig['side']
+            
+            text += (
+                f"{i}. {icon} <b>{sig['strategy_name']}</b>\n"
+                f"   💱 {sig['symbol']} · {side_text} · ${sig['price']:.2f}\n"
+                f"   ⏰ {sig['timestamp']}\n\n"
+            )
+        
+        text += "━━━━━━━━━━━━━━━━"
     
     kb = [[InlineKeyboardButton(text="🔙 返回我的账户", callback_data="my_account")]]
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
