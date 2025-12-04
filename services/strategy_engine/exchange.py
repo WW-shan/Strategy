@@ -42,7 +42,7 @@ class ExchangeManager:
             self.primary_exchange = binance  # 设置为主交易所
             logger.info("✅ Successfully connected to Binance Futures")
         except Exception as e:
-            logger.error(f"❌ Failed to connect to Binance: {e}")
+            logger.error(f"❌ Failed to connect to Binance: {e}", exc_info=True)
         
         # ==================== Bitget ====================
         try:
@@ -73,7 +73,7 @@ class ExchangeManager:
             self.exchanges['bitget'] = bitget
             logger.info("✅ Successfully connected to Bitget Futures")
         except Exception as e:
-            logger.error(f"❌ Failed to connect to Bitget: {e}")
+            logger.error(f"❌ Failed to connect to Bitget: {e}", exc_info=True)
 
     def get_exchange(self, exchange_name: str = 'binance'):
         """获取指定交易所实例"""
