@@ -67,11 +67,11 @@ async def msg_view_strategies(message: types.Message):
     
     for s in strategies:
         price = f"💰 ${s['price_monthly']}/月"
-        desc = s['description'] or '专业量化交易策略'
+        desc = s.get('description') or ''
         text += (
-            f"▫️ <b>{s['name']}</b>\n"
-            f"   {desc}\n"
-            f"   {price}\n\n"
+            f"<b>{s['name']}</b>\n"
+            f"<i>{desc}</i>\n"
+            f"{price}\n\n"
         )
         # Add detail button and subscribe button
         kb.append([
@@ -359,14 +359,15 @@ async def cb_strategy_detail(callback: types.CallbackQuery):
         await callback.answer("❌ 策略不存在", show_alert=True)
         return
     
+    desc = strategy.get('description', '').strip()
+    desc_section = f"┌─────────────────┐\n<i>{desc}</i>\n└─────────────────┘\n\n" if desc else ""
+    
     text = (
-        f"📊 <b>{strategy['name']}</b>\n\n"
+        f"<b>📊 {strategy['name']}</b>\n\n"
+        f"{desc_section}"
+        f"💰 订阅价格: <b>${strategy['price_monthly']:.2f}/月</b>\n"
+        f"⏰ 有效期: <b>30天</b>\n\n"
         f"━━━━━━━━━━━━━━━━\n\n"
-        f"📝 <b>策略说明</b>\n"
-        f"{strategy['description'] or '专业量化交易策略'}\n\n"
-        f"💰 <b>订阅价格</b>\n"
-        f"${strategy['price_monthly']}/月 (30天)\n\n"
-        f"━━━━━━━━━━━━━━━━\n"
         f"<i>点击下方按钮确认订阅</i>"
     )
     
