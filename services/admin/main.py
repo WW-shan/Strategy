@@ -92,6 +92,13 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
     return new_user
 
+@app.get("/users/{telegram_id}")
+def get_user(telegram_id: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
 @app.get("/users/{telegram_id}/subscriptions")
 def get_user_subscriptions(telegram_id: str, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
@@ -153,6 +160,20 @@ def create_subscription(sub: SubscriptionCreate, db: Session = Depends(get_db)):
     if existing:
         return {"message": "Already subscribed", "status": "exists"}
 
+    # Check balance
+    if user.balance < strategy.price_monthly:
+        return {
+            "message": f"Insufficient balance. Required: ${strategy.price_monthly:.2f}, Available: ${user.balance:.2f}",
+            "status": "insufficient_balance",
+            "required": strategy.price_monthly,
+            "available": user.balance
+        }
+
+    # Deduct balance
+    user.balance -= strategy.price_monthly
+    db.add(user)
+
+    # Create subscription
     new_sub = models.Subscription(
         user_id=user.id,
         strategy_id=strategy.id,
@@ -160,6 +181,6 @@ def create_subscription(sub: SubscriptionCreate, db: Session = Depends(get_db)):
     )
     db.add(new_sub)
     db.commit()
-    return {"message": "Subscription created", "status": "created"}
+    return {"message": "Subscription created", "status": "created", "remaining_balance": user.balance}
 
 

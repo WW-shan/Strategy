@@ -43,14 +43,22 @@ class SignalListener:
             signal_data = json.loads(data)
             logger.info(f"Received signal: {signal_data}")
             
-            # Format the message
+            # Format the message (escape HTML special characters)
+            import html
+            strategy_name = html.escape(signal_data.get('strategy_name', 'Unknown'))
+            symbol = html.escape(signal_data.get('symbol', 'Unknown'))
+            side = html.escape(signal_data.get('side', 'Unknown'))
+            price = html.escape(str(signal_data.get('price', 0)))
+            reason = html.escape(signal_data.get('reason', 'N/A'))
+            timestamp = html.escape(signal_data.get('timestamp', 'N/A'))
+            
             text = (
-                f"🚨 <b>Signal Alert: {signal_data['strategy_name']}</b>\n\n"
-                f"Symbol: <b>{signal_data['symbol']}</b>\n"
-                f"Side: <b>{signal_data['side']}</b>\n"
-                f"Price: {signal_data['price']}\n"
-                f"Reason: {signal_data['reason']}\n"
-                f"Time: {signal_data['timestamp']}"
+                f"🚨 <b>Signal Alert: {strategy_name}</b>\n\n"
+                f"Symbol: <b>{symbol}</b>\n"
+                f"Side: <b>{side}</b>\n"
+                f"Price: <code>{price}</code>\n"
+                f"Reason: <code>{reason}</code>\n"
+                f"Time: <code>{timestamp}</code>"
             )
 
             # Fetch subscribed users from Admin API
@@ -102,6 +110,9 @@ class AdminAPI:
             "username": username,
             "full_name": full_name
         })
+
+    async def get_user_info(self, telegram_id: int):
+        return await self._get(f"/users/{telegram_id}")
 
     async def get_strategies(self):
         return await self._get("/strategies/") or []
