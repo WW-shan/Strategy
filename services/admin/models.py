@@ -52,16 +52,15 @@ class Subscription(Base):
 
     def __str__(self):
         status = "活跃" if self.is_active else "已停用"
-        # 转换到 UTC+8 时区
         if self.end_date:
-            end_date_cn = self.end_date.replace(tzinfo=None)
-            if self.end_date.tzinfo:
-                end_date_cn = self.end_date.astimezone(CN_TZ)
-            end = end_date_cn.strftime("%Y-%m-%d")
+            # 简化时间处理，避免时区转换错误
+            try:
+                end = self.end_date.strftime("%Y-%m-%d")
+            except:
+                end = str(self.end_date)[:10]
         else:
             end = "永久"
-        strategy_name = self.strategy.name if self.strategy else "未知策略"
-        return f"{strategy_name} ({status}, 到期: {end})"
+        return f"订阅 ID:{self.id} ({status}, 到期: {end})"
 
 class Signal(Base):
     __tablename__ = "signals"

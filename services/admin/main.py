@@ -95,20 +95,42 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         if db_user.full_name != user.full_name:
             db_user.full_name = user.full_name
         db.commit()
-        return db_user
+        return {
+            "id": db_user.id,
+            "telegram_id": db_user.telegram_id,
+            "username": db_user.username,
+            "full_name": db_user.full_name,
+            "balance": float(db_user.balance),
+            "is_active": db_user.is_active
+        }
     
     new_user = models.User(telegram_id=user.telegram_id, username=user.username, full_name=user.full_name)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return {
+        "id": new_user.id,
+        "telegram_id": new_user.telegram_id,
+        "username": new_user.username,
+        "full_name": new_user.full_name,
+        "balance": float(new_user.balance),
+        "is_active": new_user.is_active
+    }
 
 @app.get("/users/{telegram_id}")
 def get_user(telegram_id: str, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return {
+        "id": user.id,
+        "telegram_id": user.telegram_id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "balance": float(user.balance),
+        "is_active": user.is_active,
+        "created_at": user.created_at.strftime("%Y-%m-%d %H:%M:%S")
+    }
 
 @app.get("/users/{telegram_id}/subscriptions")
 def get_user_subscriptions(telegram_id: str, db: Session = Depends(get_db)):
@@ -155,7 +177,17 @@ def get_strategy_subscribers(strategy_id: int, db: Session = Depends(get_db)):
 
 @app.get("/strategies/")
 def list_strategies(db: Session = Depends(get_db)):
-    return db.query(models.Strategy).filter(models.Strategy.is_active == True).all()
+    strategies = db.query(models.Strategy).filter(models.Strategy.is_active == True).all()
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "description": s.description,
+            "price_monthly": float(s.price_monthly),
+            "is_active": s.is_active
+        }
+        for s in strategies
+    ]
 
 class SubscriptionCreate(BaseModel):
     telegram_id: str
@@ -188,8 +220,8 @@ def create_subscription(sub: SubscriptionCreate, db: Session = Depends(get_db)):
             return {
                 "message": f"Insufficient balance. Required: ${strategy.price_monthly:.2f}, Available: ${user.balance:.2f}",
                 "status": "insufficient_balance",
-                "required": strategy.price_monthly,
-                "available": user.balance
+                "required": float(strategy.price_monthly),
+                "available": float(user.balance)
             }
 
         # Deduct balance
@@ -212,8 +244,8 @@ def create_subscription(sub: SubscriptionCreate, db: Session = Depends(get_db)):
         return {
             "message": "Subscription created", 
             "status": "created", 
-            "remaining_balance": user.balance,
-            "end_date": end_date.strftime("%Y-%m-%d %H:%M:%S")
+            "remaining_balance": float(user.balance),
+            "end_date": end_date.strftime("%Y-%m-%d")
         }
     
     except HTTPException:
@@ -252,8 +284,8 @@ def renew_subscription(renew: SubscriptionRenew, db: Session = Depends(get_db)):
             return {
                 "message": f"余额不足。需要: ${strategy.price_monthly:.2f}，可用: ${user.balance:.2f}",
                 "status": "insufficient_balance",
-                "required": strategy.price_monthly,
-                "available": user.balance
+                "required": float(strategy.price_monthly),
+                "available": float(user.balance)
             }
         
         # Deduct balance
@@ -275,17 +307,21 @@ def renew_subscription(renew: SubscriptionRenew, db: Session = Depends(get_db)):
         db.add(subscription)
         db.commit()
         
+        # 确保时间格式正确
+        end_date_str = new_end_date.strftime("%Y-%m-%d") if new_end_date else "永久"
+        
         return {
             "message": "续订成功",
             "status": "renewed",
-            "remaining_balance": user.balance,
-            "new_end_date": new_end_date.strftime("%Y-%m-%d %H:%M:%S")
+            "remaining_balance": float(user.balance),
+            "new_end_date": end_date_str
         }
     
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
+        logger.error(f"Renew subscription error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"数据库错误: {str(e)}")
 
 def check_expired_subscriptions():
