@@ -79,3 +79,17 @@ async def cb_payment(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="🔙 返回", callback_data="main_menu")]
     ]
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+
+@router.callback_query(F.data.startswith("sub_"))
+async def cb_subscribe(callback: types.CallbackQuery):
+    strategy_id = int(callback.data.split("_")[1])
+    
+    # Call API to subscribe
+    result = await api_client.subscribe_strategy(callback.from_user.id, strategy_id)
+    
+    if result and result.get("status") in ["created", "exists"]:
+        msg = "✅ 订阅成功！" if result.get("status") == "created" else "ℹ️ 您已订阅该策略。"
+        await callback.answer(msg, show_alert=True)
+    else:
+        await callback.answer("❌ 订阅失败，请稍后再试。", show_alert=True)
+

@@ -114,4 +114,10 @@ class AdminAPI:
         """Fetch all users subscribed to a specific strategy"""
         return await self._get(f"/strategies/{strategy_id}/subscribers") or []
 
+    async def subscribe_strategy(self, telegram_id: int, strategy_id: int):
+        return await self._post("/subscriptions/", {
+            "telegram_id": str(telegram_id),
+            "strategy_id": strategy_id
+        })
+
 api_client = AdminAPI()

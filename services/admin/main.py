@@ -7,7 +7,7 @@ from database import engine, Base, settings
 from models import User, Strategy, Subscription, Signal
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from database import get_db
 import models
 
@@ -128,4 +128,38 @@ def get_strategy_subscribers(strategy_id: int, db: Session = Depends(get_db)):
 @app.get("/strategies/")
 def list_strategies(db: Session = Depends(get_db)):
     return db.query(models.Strategy).filter(models.Strategy.is_active == True).all()
+
+class SubscriptionCreate(BaseModel):
+    telegram_id: str
+    strategy_id: int
+
+@app.post("/subscriptions/")
+def create_subscription(sub: SubscriptionCreate, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.telegram_id == sub.telegram_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    strategy = db.query(models.Strategy).filter(models.Strategy.id == sub.strategy_id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    # Check existing
+    existing = db.query(models.Subscription).filter(
+        models.Subscription.user_id == user.id,
+        models.Subscription.strategy_id == strategy.id,
+        models.Subscription.is_active == True
+    ).first()
+    
+    if existing:
+        return {"message": "Already subscribed", "status": "exists"}
+
+    new_sub = models.Subscription(
+        user_id=user.id,
+        strategy_id=strategy.id,
+        is_active=True
+    )
+    db.add(new_sub)
+    db.commit()
+    return {"message": "Subscription created", "status": "created"}
+
 
