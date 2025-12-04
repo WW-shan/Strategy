@@ -47,10 +47,15 @@ class Subscription(Base):
     strategy = relationship("Strategy")
 
     def __str__(self):
-        status = "活跃" if self.is_active else "已停用"
-        end = self.end_date.strftime("%Y-%m-%d") if self.end_date else "永久"
-        strategy_name = self.strategy.name if self.strategy else "未知策略"
-        return f"{strategy_name} ({status}, 到期: {end})"
+        try:
+            status = "活跃" if self.is_active else "已停用"
+            end = self.end_date.strftime("%Y-%m-%d") if self.end_date else "永久"
+            # 安全地访问 strategy，避免 lazy loading 问题
+            strategy_name = getattr(self.strategy, 'name', None) or "未知策略"
+            return f"{strategy_name} ({status}, 到期: {end})"
+        except Exception:
+            # 如果任何操作失败，返回一个安全的字符串
+            return f"订阅 #{self.id}"
 
 class Signal(Base):
     __tablename__ = "signals"
