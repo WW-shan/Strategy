@@ -236,9 +236,6 @@ async def cb_payment(callback: types.CallbackQuery):
 async def cb_subscribe(callback: types.CallbackQuery):
     strategy_id = int(callback.data.split("_")[1])
     
-    # Show loading indicator
-    await callback.answer("⏳ 正在处理订阅...", show_alert=False)
-    
     # Call API to subscribe
     try:
         result = await api_client.subscribe_strategy(callback.from_user.id, strategy_id)
@@ -308,8 +305,6 @@ async def cb_renew_menu(callback: types.CallbackQuery):
 async def cb_renew(callback: types.CallbackQuery):
     """Process subscription renewal"""
     strategy_id = int(callback.data.split("_")[1])
-    
-    await callback.answer("⏳ 正在处理续订...", show_alert=False)
     
     # Call API to renew subscription
     try:
@@ -383,8 +378,6 @@ async def cb_confirm_subscribe(callback: types.CallbackQuery):
     """Confirm and process subscription"""
     strategy_id = int(callback.data.split("_")[2])
     
-    await callback.answer("⏳ 正在处理订阅...", show_alert=False)
-    
     try:
         result = await api_client.subscribe_strategy(callback.from_user.id, strategy_id)
     except Exception:
@@ -403,8 +396,6 @@ async def cb_confirm_subscribe(callback: types.CallbackQuery):
                 f"您将实时收到交易信号！"
             )
             await callback.answer(msg, show_alert=True)
-            # Return to strategy list
-            await cb_view_strategies(callback)
         elif status == "exists":
             await callback.answer("ℹ️ 您已订阅该策略", show_alert=True)
         elif status == "insufficient_balance":
