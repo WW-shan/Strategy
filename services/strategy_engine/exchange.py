@@ -37,8 +37,23 @@ class ExchangeManager:
             self.exchange.load_markets()
             logger.info("Successfully connected to Binance Futures")
         except Exception as e:
-            logger.error(f"Failed to connect to Binance: {e}")
-            self.exchange = None
+            logger.error(f"Failed to connect to Binance with API keys: {e}")
+            
+            # Fallback to public mode if API key connection fails
+            if settings.BINANCE_API_KEY:
+                logger.warning("Retrying connection in public mode (read-only)...")
+                try:
+                    # Remove API keys from config
+                    config.pop('apiKey', None)
+                    config.pop('secret', None)
+                    
+                    self.exchange = ccxt.binance(config)
+                    self.exchange.load_markets()
+                    logger.info("Successfully connected to Binance Futures (Public Mode)")
+                    return
+                except Exception as e2:
+                    logger.error(f"Failed to connect even in public mode: {e2}")
+            
             self.exchange = None
 
     def get_ticker(self, symbol: str):
