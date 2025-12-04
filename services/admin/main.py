@@ -48,24 +48,10 @@ app = FastAPI(title="Strategy Admin Panel")
 
 # --- SQLAdmin Views ---
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.telegram_id, User.username, User.balance, User.is_active, User.subscriptions]
+    column_list = [User.id, User.telegram_id, User.username, User.balance, User.is_active]
     column_searchable_list = [User.username, User.telegram_id]
     form_columns = [User.telegram_id, User.username, User.full_name, User.balance, User.is_active]
     icon = "fa-solid fa-user"
-    
-    # async def _format_subscriptions(self, model, attribute):
-    #     """Display subscription strategies for each user"""
-    #     if not model.subscriptions:
-    #         return "无"
-    #     active_subs = [s for s in model.subscriptions if s.is_active]
-    #     if not active_subs:
-    #         return "无"
-    #     strategy_names = ", ".join([s.strategy.name for s in active_subs])
-    #     return strategy_names
-    
-    # column_formatters = {
-    #     "subscriptions": _format_subscriptions
-    # }
 
 class StrategyAdmin(ModelView, model=Strategy):
     column_list = [Strategy.id, Strategy.name, Strategy.price_monthly, Strategy.is_active]
@@ -73,7 +59,7 @@ class StrategyAdmin(ModelView, model=Strategy):
     icon = "fa-solid fa-chart-line"
 
 class SubscriptionAdmin(ModelView, model=Subscription):
-    column_list = [Subscription.id, Subscription.user, Subscription.strategy, Subscription.is_active]
+    column_list = [Subscription.id, Subscription.user, Subscription.strategy, Subscription.start_date, Subscription.end_date, Subscription.is_active]
     icon = "fa-solid fa-ticket"
 
 class SignalAdmin(ModelView, model=Signal):
