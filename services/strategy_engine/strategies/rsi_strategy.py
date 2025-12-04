@@ -3,7 +3,10 @@ import pandas as pd
 import numpy as np
 import logging
 from datetime import datetime
+from pytz import timezone
 import json
+
+CN_TZ = timezone('Asia/Shanghai')
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +86,7 @@ class RsiStrategy(BaseStrategy):
                     "side": signal_side,
                     "price": current_price,
                     "reason": reason,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(CN_TZ).isoformat()
                 }
                 
                 # Call the callback function to handle the signal (save to DB, publish to Redis)

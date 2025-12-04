@@ -12,8 +12,11 @@ from database import get_db
 from sqlalchemy import func
 import models
 from datetime import datetime, timedelta
+from pytz import timezone
 import asyncio
 import logging
+
+CN_TZ = timezone('Asia/Shanghai')
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -126,7 +129,7 @@ def get_user_subscriptions(telegram_id: str, db: Session = Depends(get_db)):
 @app.get("/strategies/{strategy_id}/subscribers")
 def get_strategy_subscribers(strategy_id: int, db: Session = Depends(get_db)):
     """Get all active subscribers for a strategy (checks expiration)"""
-    now = datetime.utcnow()
+    now = datetime.now(CN_TZ)
     subscriptions = db.query(models.Subscription).filter(
         models.Subscription.strategy_id == strategy_id,
         models.Subscription.is_active == True
@@ -194,12 +197,12 @@ def create_subscription(sub: SubscriptionCreate, db: Session = Depends(get_db)):
         db.add(user)
 
         # Create subscription with end_date (30 days from now)
-        end_date = datetime.utcnow() + timedelta(days=30)
+        end_date = datetime.now(CN_TZ) + timedelta(days=30)
         new_sub = models.Subscription(
             user_id=user.id,
             strategy_id=strategy.id,
             is_active=True,
-            start_date=datetime.utcnow(),
+            start_date=datetime.now(CN_TZ),
             end_date=end_date
         )
         db.add(new_sub)
@@ -257,7 +260,7 @@ def renew_subscription(renew: SubscriptionRenew, db: Session = Depends(get_db)):
         user.balance -= strategy.price_monthly
         
         # Extend subscription
-        now = datetime.utcnow()
+        now = datetime.now(CN_TZ)
         if subscription.end_date and subscription.end_date > now:
             # Still active, extend from current end_date
             new_end_date = subscription.end_date + timedelta(days=30)
@@ -289,7 +292,7 @@ def check_expired_subscriptions():
     """Background task to check and deactivate expired subscriptions"""
     db = SessionLocal()
     try:
-        now = datetime.utcnow()
+        now = datetime.now(CN_TZ)
         expired_subs = db.query(models.Subscription).filter(
             models.Subscription.is_active == True,
             models.Subscription.end_date != None,

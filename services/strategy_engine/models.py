@@ -2,6 +2,9 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Date
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
+from pytz import timezone
+
+CN_TZ = timezone('Asia/Shanghai')
 
 class User(Base):
     __tablename__ = "users"
@@ -12,7 +15,7 @@ class User(Base):
     full_name = Column(String, nullable=True)
     balance = Column(Float, default=0.0)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(CN_TZ))
     
     subscriptions = relationship("Subscription", back_populates="user")
 
@@ -28,7 +31,7 @@ class Strategy(Base):
     price_monthly = Column(Float, default=0.0)
     config_json = Column(Text, default="{}") # Store strategy parameters as JSON string
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(CN_TZ))
 
     def __str__(self):
         return self.name
@@ -39,7 +42,7 @@ class Subscription(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     strategy_id = Column(Integer, ForeignKey("strategies.id"))
-    start_date = Column(DateTime, default=datetime.utcnow)
+    start_date = Column(DateTime, default=lambda: datetime.now(CN_TZ))
     end_date = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
 
@@ -54,7 +57,7 @@ class Signal(Base):
     symbol = Column(String, index=True)
     side = Column(String)  # BUY or SELL
     price = Column(Float)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(CN_TZ))
     reason = Column(String, nullable=True) # e.g., "RSI < 30"
     
     strategy = relationship("Strategy")

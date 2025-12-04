@@ -46,6 +46,9 @@ class SignalListener:
             # Format the message (escape HTML special characters)
             import html
             from datetime import datetime
+            from pytz import timezone
+            
+            CN_TZ = timezone('Asia/Shanghai')
             
             strategy_name = html.escape(signal_data.get('strategy_name', 'Unknown'))
             symbol = html.escape(signal_data.get('symbol', 'Unknown'))
@@ -57,7 +60,11 @@ class SignalListener:
             # Format timestamp to be more readable
             try:
                 dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-                time_display = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                # 转换到 UTC+8
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone('UTC'))
+                dt_cn = dt.astimezone(CN_TZ)
+                time_display = dt_cn.strftime('%Y-%m-%d %H:%M:%S')
             except:
                 time_display = timestamp_str
             
