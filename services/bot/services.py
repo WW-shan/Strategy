@@ -45,20 +45,44 @@ class SignalListener:
             
             # Format the message (escape HTML special characters)
             import html
+            from datetime import datetime
+            
             strategy_name = html.escape(signal_data.get('strategy_name', 'Unknown'))
             symbol = html.escape(signal_data.get('symbol', 'Unknown'))
             side = html.escape(signal_data.get('side', 'Unknown'))
             price = html.escape(str(signal_data.get('price', 0)))
             reason = html.escape(signal_data.get('reason', 'N/A'))
-            timestamp = html.escape(signal_data.get('timestamp', 'N/A'))
+            timestamp_str = signal_data.get('timestamp', 'N/A')
+            
+            # Format timestamp to be more readable
+            try:
+                dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                time_display = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+            except:
+                time_display = timestamp_str
+            
+            # Different icons and formatting for BUY/SELL
+            if side.upper() == 'BUY':
+                signal_icon = "🟢"
+                side_display = "买入 (BUY)"
+            elif side.upper() == 'SELL':
+                signal_icon = "🔴"
+                side_display = "卖出 (SELL)"
+            else:
+                signal_icon = "🟡"
+                side_display = side
             
             text = (
-                f"🚨 <b>策略信号: {strategy_name}</b>\n\n"
-                f"交易对: <b>{symbol}</b>\n"
-                f"方向: <b>{side}</b>\n"
-                f"价格: <code>{price}</code>\n"
-                f"理由: <code>{reason}</code>\n"
-                f"时间: <code>{timestamp}</code>"
+                f"{signal_icon} <b>交易信号提醒</b>\n\n"
+                f"━━━━━━━━━━━━━━━━\n\n"
+                f"📊 策略: <b>{strategy_name}</b>\n"
+                f"💱 交易对: <b>{symbol}</b>\n"
+                f"📍 方向: <b>{side_display}</b>\n"
+                f"💰 价格: <code>{price}</code>\n\n"
+                f"━━━━━━━━━━━━━━━━\n\n"
+                f"📝 理由: <i>{reason}</i>\n"
+                f"⏰ 时间: <code>{time_display}</code>\n\n"
+                f"<i>请根据您的风险偏好决策</i>"
             )
 
             # Fetch subscribed users from Admin API
