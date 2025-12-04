@@ -8,6 +8,14 @@ from pytz import timezone
 CN_TZ = timezone('Asia/Shanghai')
 logger = logging.getLogger(__name__)
 
+# 缓存管理器（通过 set_cache_manager() 初始化）
+cache_manager = None
+
+def set_cache_manager(cm):
+    """设置缓存管理器"""
+    global cache_manager
+    cache_manager = cm
+
 class BtcFiveDownStrategy(BaseStrategy):
     def __init__(self, strategy_id: int, name: str, config: dict, exchange, signal_callback):
         # 初始化父类
@@ -38,9 +46,23 @@ class BtcFiveDownStrategy(BaseStrategy):
             return
 
         try:
-            # 1. 获取 K 线数据
-            # 获取最近 10 根，确保有足够的历史数据来判断前 5 根
-            ohlcv = self.exchange.get_ohlcv(self.symbol, self.timeframe, limit=10, exchange_name=self.exchange_name)
+            # 1. 获取 K 线数据（优先从缓存）
+            cache_key = f"{self.exchange_name}:{self.symbol}:{self.timeframe}"
+            ohlcv = None
+            
+            # 尝试从缓存获取
+            if cache_manager:
+                ohlcv = cache_manager.get_cache('market_data', self.exchange_name, self.symbol, self.timeframe)
+                if ohlcv:
+                    self.log(f"✓ 使用缓存 OHLCV (BTC 5连阴策略) [{cache_key}]")
+            
+            # 缓存未命中，从交易所获取
+            if not ohlcv:
+                ohlcv = self.exchange.get_ohlcv(self.symbol, self.timeframe, limit=10, exchange_name=self.exchange_name)
+                # 存入缓存
+                if cache_manager and ohlcv:
+                    cache_manager.set_cache('market_data', self.exchange_name, self.symbol, ohlcv, self.timeframe)
+                    self.log(f"📦 缓存新 OHLCV (BTC 5连阴策略) [{cache_key}]")
             
             if not ohlcv or len(ohlcv) < 6:
                 self.log(f"K线数据不足: 只有 {len(ohlcv) if ohlcv else 0} 根 (从 {self.exchange_name})")

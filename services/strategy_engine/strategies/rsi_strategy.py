@@ -10,6 +10,14 @@ CN_TZ = timezone('Asia/Shanghai')
 
 logger = logging.getLogger(__name__)
 
+# 导入缓存管理器（延迟导入以避免循环依赖）
+cache_manager = None
+
+def set_cache_manager(cm):
+    """设置缓存管理器（在 main.py 中调用）"""
+    global cache_manager
+    cache_manager = cm
+
 class RsiStrategy(BaseStrategy):
     def __init__(self, strategy_id: int, name: str, config: dict, exchange, signal_callback):
         super().__init__(strategy_id, name, config, exchange)
@@ -45,17 +53,31 @@ class RsiStrategy(BaseStrategy):
             return
 
         try:
-            # 1. Fetch OHLCV data
-            # Fetch enough candles to calculate RSI (e.g., 100 candles)
-            ohlcv = self.exchange.get_ohlcv(self.symbol, self.timeframe, limit=100, exchange_name=self.exchange_name)
+            # 1. 尝试从缓存获取 OHLCV 数据
+            cache_key = f"{self.exchange_name}:{self.symbol}:{self.timeframe}"
+            ohlcv = None
+            
+            if cache_manager:
+                ohlcv = cache_manager.get_cache('market_data', self.exchange_name, self.symbol, self.timeframe)
+                if ohlcv:
+                    self.log(f"✓ Using cached OHLCV for {cache_key}")
+            
+            # 2. 如果缓存未命中，从交易所获取
             if not ohlcv:
-                self.log(f"Failed to fetch OHLCV from {self.exchange_name}")
-                return
+                ohlcv = self.exchange.get_ohlcv(self.symbol, self.timeframe, limit=100, exchange_name=self.exchange_name)
+                if not ohlcv:
+                    self.log(f"Failed to fetch OHLCV from {self.exchange_name}")
+                    return
+                
+                # 3. 存入缓存
+                if cache_manager:
+                    cache_manager.set_cache('market_data', self.exchange_name, self.symbol, ohlcv, self.timeframe)
+                    self.log(f"📦 Cached OHLCV for {cache_key}")
 
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['close'] = df['close'].astype(float)
             
-            # 2. Calculate RSI
+            # 4. Calculate RSI
             df['rsi'] = self.calculate_rsi(df['close'])
             
             current_rsi = df['rsi'].iloc[-1]

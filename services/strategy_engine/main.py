@@ -9,8 +9,8 @@ from exchange import exchange_manager
 from config import settings
 from models import Signal
 import models
-from strategies.rsi_strategy import RsiStrategy
-from strategies.btc_5down_strategy import BtcFiveDownStrategy
+from strategies.rsi_strategy import RsiStrategy, set_cache_manager as set_rsi_cache_manager
+from strategies.btc_5down_strategy import BtcFiveDownStrategy, set_cache_manager as set_btc_cache_manager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from functools import lru_cache
@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 
 # ==================== 缓存配置 ====================
 class CacheManager:
-    """管理各类缓存，减少重复数据访问"""
+    """管理各类缓存，减少重复数据访问，支持多交易所"""
     def __init__(self):
-        self.market_data_cache = {}  # {symbol: {'price': float, 'timestamp': int}}
+        # {exchange:symbol: data}  例如: "binance:BTC/USDT": ohlcv_data
+        self.market_data_cache = {}  
         self.strategy_config_cache = {}  # {strategy_id: config_dict}
         self.cache_ttl = {
             'market_data': 30,  # 市场数据缓存 30 秒
@@ -38,16 +39,24 @@ class CacheManager:
             'strategy_config': {},
         }
     
-    def get_cache(self, cache_type: str, key: str):
+    def _make_cache_key(self, exchange: str, symbol: str, timeframe: str = None):
+        """生成缓存键，支持多交易所"""
+        if timeframe:
+            return f"{exchange}:{symbol}:{timeframe}"
+        return f"{exchange}:{symbol}"
+    
+    def get_cache(self, cache_type: str, exchange: str, symbol: str, timeframe: str = None):
         """获取缓存，如果过期则返回None"""
         if cache_type == 'market_data':
             cache = self.market_data_cache
             last_update = self.last_cache_update['market_data']
             ttl = self.cache_ttl['market_data']
+            key = self._make_cache_key(exchange, symbol, timeframe)
         elif cache_type == 'strategy_config':
             cache = self.strategy_config_cache
             last_update = self.last_cache_update['strategy_config']
             ttl = self.cache_ttl['strategy_config']
+            key = f"{exchange}:{symbol}" if exchange else symbol
         else:
             return None
         
@@ -57,18 +66,26 @@ class CacheManager:
             else:
                 # 缓存过期，删除
                 del cache[key]
-                del last_update[key]
+                if key in last_update:
+                    del last_update[key]
         
         return None
     
-    def set_cache(self, cache_type: str, key: str, value):
+    def set_cache(self, cache_type: str, exchange: str, symbol: str, value, timeframe: str = None):
         """设置缓存"""
         if cache_type == 'market_data':
-            self.market_data_cache[key] = value
-            self.last_cache_update['market_data'][key] = time.time()
+            cache = self.market_data_cache
+            last_update = self.last_cache_update['market_data']
+            key = self._make_cache_key(exchange, symbol, timeframe)
         elif cache_type == 'strategy_config':
-            self.strategy_config_cache[key] = value
-            self.last_cache_update['strategy_config'][key] = time.time()
+            cache = self.strategy_config_cache
+            last_update = self.last_cache_update['strategy_config']
+            key = f"{exchange}:{symbol}" if exchange else symbol
+        else:
+            return
+        
+        cache[key] = value
+        last_update[key] = time.time()
     
     def clear_expired(self):
         """清理过期缓存"""
@@ -87,6 +104,14 @@ class CacheManager:
                 del self.strategy_config_cache[key]
                 if key in self.last_cache_update['strategy_config']:
                     del self.last_cache_update['strategy_config'][key]
+    
+    def get_cache_size(self):
+        """获取缓存大小统计"""
+        return {
+            'market_data': len(self.market_data_cache),
+            'strategy_config': len(self.strategy_config_cache),
+            'total': len(self.market_data_cache) + len(self.strategy_config_cache)
+        }
 
 cache_manager = CacheManager()
 
@@ -153,6 +178,12 @@ def _start_strategy(s_db, running_strategies):
             exchange=exchange_manager,
             signal_callback=handle_signal
         )
+        
+        # 为策略初始化缓存管理器
+        if strategy_class == RsiStrategy:
+            set_rsi_cache_manager(cache_manager)
+        elif strategy_class == BtcFiveDownStrategy:
+            set_btc_cache_manager(cache_manager)
         strategy.start()
         running_strategies[s_db.id] = {
             'instance': strategy,
@@ -191,7 +222,8 @@ def main():
         # 定期清理过期缓存（每 5 分钟清理一次）
         if loop_count % 5 == 0:
             cache_manager.clear_expired()
-            logger.info(f"Cache status - Market Data: {len(cache_manager.market_data_cache)}, Strategy Config: {len(cache_manager.strategy_config_cache)}")
+            cache_stats = cache_manager.get_cache_size()
+            logger.info(f"📊 Cache Stats - Market Data: {cache_stats['market_data']}, Strategy Config: {cache_stats['strategy_config']}, Total: {cache_stats['total']}")
         
         # --- Dynamic Strategy Loading ---
         try:
