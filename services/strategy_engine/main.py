@@ -60,6 +60,25 @@ def handle_signal(signal_data):
         except Exception as e:
             logger.error(f"Failed to publish signal to Redis: {e}")
 
+def _start_strategy(s_db, running_strategies):
+    try:
+        config = json.loads(s_db.config_json)
+        strategy = RsiStrategy(
+            strategy_id=s_db.id,
+            name=s_db.name,
+            config=config,
+            exchange=exchange_manager,
+            signal_callback=handle_signal
+        )
+        strategy.start()
+        running_strategies[s_db.id] = {
+            'instance': strategy,
+            'config_raw': s_db.config_json
+        }
+        logger.info(f"Started strategy: {s_db.name} (ID: {s_db.id})")
+    except Exception as e:
+        logger.error(f"Failed to start strategy {s_db.name}: {e}")
+
 def main():
     logger.info("Strategy Engine Starting...")
     
@@ -79,50 +98,52 @@ def main():
     else:
         logger.warning("Exchange connection failed or not configured")
 
-    # 3. Load Strategies from Database
-    active_strategies = []
-    
-    db = SessionLocal()
-    try:
-        # Fetch all active strategies
-        strategies_db = db.query(models.Strategy).filter(models.Strategy.is_active == True).all()
-        logger.info(f"Found {len(strategies_db)} active strategies in database")
-
-        for s in strategies_db:
-            try:
-                config = json.loads(s.config_json)
-                
-                # Currently we only support 'RsiStrategy'. 
-                # In the future, we can add a 'type' field to the Strategy model to distinguish classes.
-                # For now, we assume all strategies are RSI strategies.
-                strategy_instance = RsiStrategy(
-                    strategy_id=s.id,
-                    name=s.name,
-                    config=config,
-                    exchange=exchange_manager,
-                    signal_callback=handle_signal
-                )
-                strategy_instance.start()
-                active_strategies.append(strategy_instance)
-                logger.info(f"Loaded strategy: {s.name} (ID: {s.id})")
-            except Exception as e:
-                logger.error(f"Failed to load strategy {s.name}: {e}")
-                
-    except Exception as e:
-        logger.error(f"Error loading strategies from DB: {e}")
-    finally:
-        db.close()
-
-    # If no strategies loaded, add a dummy one for testing if needed, or just warn
-    if not active_strategies:
-        logger.warning("No active strategies loaded from database.")
+    running_strategies = {} # {id: {'instance': strategy_obj, 'config_raw': str}}
 
     # 4. Main Loop
     logger.info("Entering Main Loop...")
     while True:
-        # Run logic for all active strategies
-        for strategy in active_strategies:
-            strategy.on_tick()
+        # --- Dynamic Strategy Loading ---
+        try:
+            db = SessionLocal()
+            active_db_strategies = db.query(models.Strategy).filter(models.Strategy.is_active == True).all()
+            
+            active_ids = {s.id for s in active_db_strategies}
+            current_ids = set(running_strategies.keys())
+
+            # 1. Stop removed/deactivated strategies
+            for s_id in current_ids - active_ids:
+                logger.info(f"Strategy {s_id} deactivated or removed. Stopping...")
+                running_strategies[s_id]['instance'].stop()
+                del running_strategies[s_id]
+
+            # 2. Start new or Update existing strategies
+            for s_db in active_db_strategies:
+                # Check if new
+                if s_db.id not in running_strategies:
+                    logger.info(f"Found new strategy: {s_db.name}")
+                    _start_strategy(s_db, running_strategies)
+                
+                # Check if config changed
+                elif running_strategies[s_db.id]['config_raw'] != s_db.config_json:
+                    logger.info(f"Configuration changed for {s_db.name}. Restarting...")
+                    running_strategies[s_db.id]['instance'].stop()
+                    _start_strategy(s_db, running_strategies)
+                    
+        except Exception as e:
+            logger.error(f"Error syncing strategies from DB: {e}")
+        finally:
+            db.close()
+
+        if not running_strategies:
+            logger.warning("No active strategies running.")
+
+        # --- Run Logic ---
+        for s_entry in running_strategies.values():
+            try:
+                s_entry['instance'].on_tick()
+            except Exception as e:
+                logger.error(f"Error in strategy tick: {e}")
 
         time.sleep(60) # Loop every minute
 
