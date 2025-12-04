@@ -10,6 +10,10 @@ from config import settings
 from models import Signal
 import models
 from strategies.rsi_strategy import RsiStrategy
+from strategies.btc_5down_strategy import BtcFiveDownStrategy
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from functools import lru_cache
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +22,73 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
+
+# ==================== 缓存配置 ====================
+class CacheManager:
+    """管理各类缓存，减少重复数据访问"""
+    def __init__(self):
+        self.market_data_cache = {}  # {symbol: {'price': float, 'timestamp': int}}
+        self.strategy_config_cache = {}  # {strategy_id: config_dict}
+        self.cache_ttl = {
+            'market_data': 30,  # 市场数据缓存 30 秒
+            'strategy_config': 300,  # 策略配置缓存 5 分钟
+        }
+        self.last_cache_update = {
+            'market_data': {},
+            'strategy_config': {},
+        }
+    
+    def get_cache(self, cache_type: str, key: str):
+        """获取缓存，如果过期则返回None"""
+        if cache_type == 'market_data':
+            cache = self.market_data_cache
+            last_update = self.last_cache_update['market_data']
+            ttl = self.cache_ttl['market_data']
+        elif cache_type == 'strategy_config':
+            cache = self.strategy_config_cache
+            last_update = self.last_cache_update['strategy_config']
+            ttl = self.cache_ttl['strategy_config']
+        else:
+            return None
+        
+        if key in cache:
+            if time.time() - last_update.get(key, 0) < ttl:
+                return cache[key]
+            else:
+                # 缓存过期，删除
+                del cache[key]
+                del last_update[key]
+        
+        return None
+    
+    def set_cache(self, cache_type: str, key: str, value):
+        """设置缓存"""
+        if cache_type == 'market_data':
+            self.market_data_cache[key] = value
+            self.last_cache_update['market_data'][key] = time.time()
+        elif cache_type == 'strategy_config':
+            self.strategy_config_cache[key] = value
+            self.last_cache_update['strategy_config'][key] = time.time()
+    
+    def clear_expired(self):
+        """清理过期缓存"""
+        current_time = time.time()
+        
+        # 清理市场数据缓存
+        for key in list(self.market_data_cache.keys()):
+            if current_time - self.last_cache_update['market_data'].get(key, 0) >= self.cache_ttl['market_data']:
+                del self.market_data_cache[key]
+                if key in self.last_cache_update['market_data']:
+                    del self.last_cache_update['market_data'][key]
+        
+        # 清理策略配置缓存
+        for key in list(self.strategy_config_cache.keys()):
+            if current_time - self.last_cache_update['strategy_config'].get(key, 0) >= self.cache_ttl['strategy_config']:
+                del self.strategy_config_cache[key]
+                if key in self.last_cache_update['strategy_config']:
+                    del self.last_cache_update['strategy_config'][key]
+
+cache_manager = CacheManager()
 
 # Redis Connection
 try:
@@ -64,7 +135,18 @@ def handle_signal(signal_data):
 def _start_strategy(s_db, running_strategies):
     try:
         config = json.loads(s_db.config_json)
-        strategy = RsiStrategy(
+        
+        # Map strategy names to classes
+        strategy_classes = {
+            'RSI Strategy': RsiStrategy,
+            'BTC 5连阴策略': BtcFiveDownStrategy,
+            'btc_5down': BtcFiveDownStrategy,
+        }
+        
+        # 获取策略类，默认使用 RsiStrategy
+        strategy_class = strategy_classes.get(s_db.name, RsiStrategy)
+        
+        strategy = strategy_class(
             strategy_id=s_db.id,
             name=s_db.name,
             config=config,
@@ -76,9 +158,9 @@ def _start_strategy(s_db, running_strategies):
             'instance': strategy,
             'config_raw': s_db.config_json
         }
-        logger.info(f"Started strategy: {s_db.name} (ID: {s_db.id})")
+        logger.info(f"Started strategy: {s_db.name} (ID: {s_db.id}) using {strategy_class.__name__}")
     except Exception as e:
-        logger.error(f"Failed to start strategy {s_db.name}: {e}")
+        logger.error(f"Failed to start strategy {s_db.name}: {e}", exc_info=True)
 
 def main():
     logger.info("Strategy Engine Starting...")
@@ -102,7 +184,15 @@ def main():
 
     # 4. Main Loop
     logger.info("Entering Main Loop...")
+    loop_count = 0
     while True:
+        loop_count += 1
+        
+        # 定期清理过期缓存（每 5 分钟清理一次）
+        if loop_count % 5 == 0:
+            cache_manager.clear_expired()
+            logger.info(f"Cache status - Market Data: {len(cache_manager.market_data_cache)}, Strategy Config: {len(cache_manager.strategy_config_cache)}")
+        
         # --- Dynamic Strategy Loading ---
         try:
             db = SessionLocal()
@@ -138,12 +228,21 @@ def main():
         if not running_strategies:
             logger.warning("No active strategies running.")
 
-        # --- Run Logic ---
-        for s_entry in running_strategies.values():
-            try:
-                s_entry['instance'].on_tick()
-            except Exception as e:
-                logger.error(f"Error in strategy tick: {e}")
+        # --- Run Logic (Parallel Execution) ---
+        # 使用线程池并发执行所有策略，避免单个策略卡住整个引擎
+        with ThreadPoolExecutor(max_workers=min(len(running_strategies), 10)) as executor:
+            futures = {}
+            for strategy_id, s_entry in running_strategies.items():
+                future = executor.submit(s_entry['instance'].on_tick)
+                futures[future] = strategy_id
+            
+            # 等待所有策略执行完成（设置超时）
+            for future in as_completed(futures, timeout=50):
+                strategy_id = futures[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Error in strategy {strategy_id} tick: {e}")
 
         time.sleep(60) # Loop every minute
 

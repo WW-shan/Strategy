@@ -71,7 +71,7 @@ async def msg_view_strategies(message: types.Message):
         )])
     
     kb.append([InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")])
-    await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+    await loading_msg.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
 
 @router.message(F.text == "👤 我的账户")
 async def msg_my_account(message: types.Message):

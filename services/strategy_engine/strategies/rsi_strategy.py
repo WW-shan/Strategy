@@ -18,6 +18,7 @@ class RsiStrategy(BaseStrategy):
         # Strategy Parameters
         self.symbol = config.get('symbol', 'BTC/USDT')
         self.timeframe = config.get('timeframe', '1h')
+        self.exchange_name = config.get('exchange', 'binance')
         self.rsi_period = int(config.get('rsi_period', 14))
         self.rsi_overbought = int(config.get('rsi_overbought', 70))
         self.rsi_oversold = int(config.get('rsi_oversold', 30))
@@ -26,7 +27,7 @@ class RsiStrategy(BaseStrategy):
 
     def start(self):
         self.is_running = True
-        self.log(f"Started RSI Strategy for {self.symbol} ({self.timeframe})")
+        self.log(f"🚀 Started RSI Strategy for {self.symbol} ({self.timeframe}) @ {self.exchange_name}")
 
     def stop(self):
         self.is_running = False
@@ -46,8 +47,9 @@ class RsiStrategy(BaseStrategy):
         try:
             # 1. Fetch OHLCV data
             # Fetch enough candles to calculate RSI (e.g., 100 candles)
-            ohlcv = self.exchange.exchange.fetch_ohlcv(self.symbol, self.timeframe, limit=100)
+            ohlcv = self.exchange.get_ohlcv(self.symbol, self.timeframe, limit=100, exchange_name=self.exchange_name)
             if not ohlcv:
+                self.log(f"Failed to fetch OHLCV from {self.exchange_name}")
                 return
 
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
