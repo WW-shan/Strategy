@@ -1,7 +1,7 @@
-pandas
-numpy
-ccxt
-redis
-sqlalchemy
-psycopg2-binary
-pydantic-settings
+pandas==2.2.0
+numpy==1.26.3
+ccxt==4.2.19
+redis==5.0.1
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+pydantic-settings==2.1.0
