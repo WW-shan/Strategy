@@ -3,6 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from config import settings
 from handlers import router
+from services import SignalListener
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +19,10 @@ async def main():
     
     # Include routers
     dp.include_router(router)
+
+    # Start Signal Listener
+    signal_listener = SignalListener(bot)
+    await signal_listener.start()
 
     logger.info("Starting Bot...")
     await dp.start_polling(bot)

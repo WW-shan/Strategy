@@ -4,7 +4,7 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from database import engine, Base, settings
-from models import User, Strategy, Subscription
+from models import User, Strategy, Subscription, Signal
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi import Depends
@@ -54,11 +54,20 @@ class SubscriptionAdmin(ModelView, model=Subscription):
     column_list = [Subscription.id, Subscription.user, Subscription.strategy, Subscription.is_active]
     icon = "fa-solid fa-ticket"
 
+class SignalAdmin(ModelView, model=Signal):
+    column_list = [Signal.id, Signal.strategy, Signal.symbol, Signal.side, Signal.price, Signal.timestamp]
+    column_sortable_list = [Signal.timestamp]
+    icon = "fa-solid fa-signal"
+    can_create = False # Signals are created by the engine, not manually
+    can_edit = False
+    can_delete = True
+
 # --- Setup Admin ---
 admin = Admin(app, engine, title="Crypto Strategy Admin", authentication_backend=authentication_backend)
 admin.add_view(UserAdmin)
 admin.add_view(StrategyAdmin)
 admin.add_view(SubscriptionAdmin)
+admin.add_view(SignalAdmin)
 
 class UserCreate(BaseModel):
     telegram_id: str
@@ -98,6 +107,23 @@ def get_user_subscriptions(telegram_id: str, db: Session = Depends(get_db)):
                 "end_date": sub.end_date.strftime("%Y-%m-%d") if sub.end_date else "Lifetime"
             })
     return result
+
+@app.get("/strategies/{strategy_id}/subscribers")
+def get_strategy_subscribers(strategy_id: int, db: Session = Depends(get_db)):
+    """Get all active subscribers for a strategy"""
+    subscriptions = db.query(models.Subscription).filter(
+        models.Subscription.strategy_id == strategy_id,
+        models.Subscription.is_active == True
+    ).all()
+    
+    subscribers = []
+    for sub in subscriptions:
+        if sub.user and sub.user.is_active:
+            subscribers.append({
+                "telegram_id": sub.user.telegram_id,
+                "username": sub.user.username
+            })
+    return subscribers
 
 @app.get("/strategies/")
 def list_strategies(db: Session = Depends(get_db)):
