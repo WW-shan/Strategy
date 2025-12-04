@@ -26,7 +26,7 @@ async def cmd_start(message: types.Message):
     await api_client.register_user(user.id, user.username, user.full_name)
     
     await message.answer(
-        f"👋 你好 {user.first_name}!\n\n欢迎来到加密货币策略平台。\n请选择下方功能：",
+        f"👋 你好 {user.first_name}!\n\n欢迎来到SW² WAVE策略平台。\n请选择下方功能：",
         reply_markup=main_menu_kb()
     )
 
