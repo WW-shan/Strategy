@@ -59,26 +59,22 @@ async def msg_view_strategies(message: types.Message):
         await loading_msg.edit_text("暂无可用策略。")
         return
 
-    text = (
-        "📈 <b>策略市场</b>\n\n"
-        "━━━━━━━━━━━━━━━━\n\n"
-    )
+    text = "📈 <b>策略市场</b>\n\n"
     kb = []
     
     for s in strategies:
-        price = f"💰 ${s['price_monthly']}/月"
-        desc = s.get('description') or ''
+        price = f"${s['price_monthly']:.2f}" if s['price_monthly'] > 0 else "免费"
+        
         text += (
             f"<b>{s['name']}</b>\n"
-            f"<i>{desc}</i>\n"
-            f"{price}\n\n"
+            f"💰 {price}/月\n\n"
         )
-        # Add detail button and subscribe button
         kb.append([
-            InlineKeyboardButton(text=f"📊 {s['name']} 详情", callback_data=f"detail_{s['id']}"),
-            InlineKeyboardButton(text=f"✅ 订阅", callback_data=f"sub_{s['id']}")
+            InlineKeyboardButton(text=f"详情", callback_data=f"detail_{s['id']}"),
+            InlineKeyboardButton(text=f"订阅", callback_data=f"sub_{s['id']}")
         ])
     
+    kb.append([InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")])
     await loading_msg.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
 
 @router.message(F.text == "👤 我的账户")
@@ -165,21 +161,20 @@ async def cb_view_strategies(callback: types.CallbackQuery):
         await callback.answer("暂无可用策略。", show_alert=True)
         return
 
-    text = (
-        "📈 <b>策略市场</b>\n\n"
-        "━━━━━━━━━━━━━━━━\n\n"
-    )
+    text = "📈 <b>策略市场</b>\n\n"
     kb = []
     
     for s in strategies:
-        price = f"💰 ${s['price_monthly']}/月"
-        desc = s['description'] or '专业量化交易策略'
+        price = f"${s['price_monthly']:.2f}" if s['price_monthly'] > 0 else "免费"
+        
         text += (
-            f"▫️ <b>{s['name']}</b>\n"
-            f"   {desc}\n"
-            f"   {price}\n\n"
+            f"<b>{s['name']}</b>\n"
+            f"💰 {price}/月\n\n"
         )
-        kb.append([InlineKeyboardButton(text=f"✅ 订阅 {s['name']}", callback_data=f"sub_{s['id']}")])
+        kb.append([
+            InlineKeyboardButton(text=f"详情", callback_data=f"detail_{s['id']}"),
+            InlineKeyboardButton(text=f"订阅", callback_data=f"sub_{s['id']}")
+        ])
     
     kb.append([InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")])
     
@@ -368,8 +363,40 @@ async def cb_strategy_detail(callback: types.CallbackQuery):
     
     kb = [
         [InlineKeyboardButton(text="✅ 确认订阅", callback_data=f"confirm_sub_{strategy_id}")],
-        [InlineKeyboardButton(text="🔙 返回", callback_data="view_strategies")]
+        [InlineKeyboardButton(text="🔙 返回列表", callback_data="back_to_market")]
     ]
+    
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+
+@router.callback_query(F.data == "back_to_market")
+async def cb_back_to_market(callback: types.CallbackQuery):
+    """Return to strategy market from detail view"""
+    try:
+        strategies = await api_client.get_strategies()
+    except Exception:
+        await callback.answer("❌ 网络错误", show_alert=True)
+        return
+    
+    if not strategies:
+        await callback.message.edit_text("暂无可用策略。")
+        return
+
+    text = "📈 <b>策略市场</b>\n\n"
+    kb = []
+    
+    for s in strategies:
+        price = f"${s['price_monthly']:.2f}" if s['price_monthly'] > 0 else "免费"
+        
+        text += (
+            f"<b>{s['name']}</b>\n"
+            f"💰 {price}/月\n\n"
+        )
+        kb.append([
+            InlineKeyboardButton(text=f"详情", callback_data=f"detail_{s['id']}"),
+            InlineKeyboardButton(text=f"订阅", callback_data=f"sub_{s['id']}")
+        ])
+    
+    kb.append([InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")])
     
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
 
