@@ -54,12 +54,9 @@ class UserAdmin(ModelView, model=User):
     form_columns = [User.telegram_id, User.username, User.full_name, User.balance, User.is_active]
     icon = "fa-solid fa-user"
     
-    # column_formatters_detail = {
-    #     User.subscriptions: lambda m, a: ", ".join([
-    #         f"{s.strategy.name} ({'活跃' if s.is_active else '已停用'}, 到期: {s.end_date.strftime('%Y-%m-%d') if s.end_date else '永久'})"
-    #         for s in m.subscriptions
-    #     ]) if m.subscriptions else "无订阅"
-    # }
+    column_formatters_detail = {
+        User.subscriptions: lambda m, a: ", ".join([str(s) for s in m.subscriptions]) if m.subscriptions else "无订阅"
+    }
 
 class StrategyAdmin(ModelView, model=Strategy):
     column_list = [Strategy.id, Strategy.name, Strategy.price_monthly, Strategy.is_active]
