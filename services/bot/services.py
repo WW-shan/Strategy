@@ -130,5 +130,11 @@ class AdminAPI:
             "telegram_id": str(telegram_id),
             "strategy_id": strategy_id
         })
+    
+    async def renew_subscription(self, telegram_id: int, strategy_id: int):
+        return await self._post("/subscriptions/renew", {
+            "telegram_id": str(telegram_id),
+            "strategy_id": strategy_id
+        })
 
 api_client = AdminAPI()

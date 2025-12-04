@@ -65,14 +65,17 @@ async def cb_my_account(callback: types.CallbackQuery):
     text = f"👤 <b>账户信息</b>\nID: <code>{callback.from_user.id}</code>\n"
     text += f"余额: <b>${balance:.2f}</b>\n\n"
     
+    kb = []
     if subs:
         text += "<b>您的订阅:</b>\n"
         for sub in subs:
             text += f"✅ {sub['strategy_name']} (到期日: {sub['end_date']})\n"
+        kb.append([InlineKeyboardButton(text="🔄 续订策略", callback_data="renew_menu")])
     else:
         text += "您当前没有任何活跃订阅。"
-
-    await callback.message.edit_text(text, reply_markup=back_to_main_kb(), parse_mode="HTML")
+    
+    kb.append([InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
 
 @router.callback_query(F.data == "payment_menu")
 async def cb_payment(callback: types.CallbackQuery):
@@ -109,4 +112,59 @@ async def cb_subscribe(callback: types.CallbackQuery):
             await callback.answer(f"❌ {result.get('message', '订阅失败')}", show_alert=True)
     else:
         await callback.answer("❌ 订阅失败，请稍后再试。", show_alert=True)
+
+@router.callback_query(F.data == "renew_menu")
+async def cb_renew_menu(callback: types.CallbackQuery):
+    """Show renewal menu with user's subscriptions"""
+    subs = await api_client.get_user_subscriptions(callback.from_user.id)
+    strategies = await api_client.get_strategies()
+    
+    if not subs:
+        await callback.answer("您当前没有任何活跃订阅。", show_alert=True)
+        return
+    
+    text = "<b>🔄 续订策略</b>\n\n选择要续订的策略（续订30天）：\n\n"
+    kb = []
+    
+    # Create a strategy map for price lookup
+    strategy_map = {s['id']: s for s in strategies}
+    
+    for sub in subs:
+        # Get strategy details to show price
+        strategy_name = sub['strategy_name']
+        # Find matching strategy to get current price
+        matching_strategy = next((s for s in strategies if s['name'] == strategy_name), None)
+        if matching_strategy:
+            price_info = f" - ${matching_strategy['price_monthly']}/月"
+            kb.append([InlineKeyboardButton(
+                text=f"🔄 {strategy_name}{price_info}", 
+                callback_data=f"renew_{matching_strategy['id']}"
+            )])
+            text += f"📅 {strategy_name}\n   到期: {sub['end_date']}\n\n"
+    
+    kb.append([InlineKeyboardButton(text="🔙 返回", callback_data="my_account")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+
+@router.callback_query(F.data.startswith("renew_"))
+async def cb_renew(callback: types.CallbackQuery):
+    """Process subscription renewal"""
+    strategy_id = int(callback.data.split("_")[1])
+    
+    # Call API to renew subscription
+    result = await api_client.renew_subscription(callback.from_user.id, strategy_id)
+    
+    if result:
+        status = result.get("status")
+        if status == "renewed":
+            remaining = result.get("remaining_balance", 0)
+            new_end = result.get("new_end_date", "N/A")
+            msg = f"✅ 续订成功！\n新到期日: {new_end}\n剩余余额: ${remaining:.2f}"
+            await callback.answer(msg, show_alert=True)
+        elif status == "insufficient_balance":
+            msg = f"❌ 余额不足\n所需: ${result.get('required', 0):.2f}\n可用: ${result.get('available', 0):.2f}"
+            await callback.answer(msg, show_alert=True)
+        else:
+            await callback.answer(f"❌ {result.get('message', '续订失败')}", show_alert=True)
+    else:
+        await callback.answer("❌ 续订失败，请稍后再试。", show_alert=True)
 
