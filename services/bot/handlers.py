@@ -157,21 +157,17 @@ async def cb_view_strategies(callback: types.CallbackQuery):
         await callback.answer("暂无可用策略。", show_alert=True)
         return
 
-    text = "📈 <b>策略市场</b>\n\n"
+    text = "📈 <b>策略市场</b>\n\n请选择您感兴趣的策略查看详情："
     kb = []
     
+    # 每行显示一个策略，按钮文字直接包含名称和价格
     for s in strategies:
-        price = f"${s['price_monthly']:.2f}" if s['price_monthly'] > 0 else "免费"
-        
-        text += (
-            f"<b>{s['name']}</b>\n"
-            f"💰 {price}/月\n\n"
-        )
-        kb.append([
-            InlineKeyboardButton(text=f"详情", callback_data=f"detail_{s['id']}"),
-            InlineKeyboardButton(text=f"订阅", callback_data=f"sub_{s['id']}")
-        ])
-    
+        price = f"${s['price_monthly']:.0f}" if s['price_monthly'] > 0 else "Free"
+        kb.append([InlineKeyboardButton(
+            text=f"📊 {s['name']}  |  {price}/月", 
+            callback_data=f"detail_{s['id']}"
+        )])
+
     kb.append([InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")])
     
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
@@ -377,21 +373,17 @@ async def cb_back_to_market(callback: types.CallbackQuery):
         await callback.message.edit_text("暂无可用策略。")
         return
 
-    text = "📈 <b>策略市场</b>\n\n"
+    text = "📈 <b>策略市场</b>\n\n请选择您感兴趣的策略查看详情："
     kb = []
     
+    # 每行显示一个策略，按钮文字直接包含名称和价格
     for s in strategies:
-        price = f"${s['price_monthly']:.2f}" if s['price_monthly'] > 0 else "免费"
-        
-        text += (
-            f"<b>{s['name']}</b>\n"
-            f"💰 {price}/月\n\n"
-        )
-        kb.append([
-            InlineKeyboardButton(text=f"详情", callback_data=f"detail_{s['id']}"),
-            InlineKeyboardButton(text=f"订阅", callback_data=f"sub_{s['id']}")
-        ])
-    
+        price = f"${s['price_monthly']:.0f}" if s['price_monthly'] > 0 else "Free"
+        kb.append([InlineKeyboardButton(
+            text=f"📊 {s['name']}  |  {price}/月", 
+            callback_data=f"detail_{s['id']}"
+        )])
+
     kb.append([InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")])
     
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")

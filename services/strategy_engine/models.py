@@ -15,7 +15,7 @@ class User(Base):
     full_name = Column(String, nullable=True)
     balance = Column(Float, default=0.0)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(CN_TZ))
+    created_at = Column(DateTime, default=lambda: datetime.now(CN_TZ).replace(tzinfo=None))
     
     subscriptions = relationship("Subscription", back_populates="user")
 
@@ -31,7 +31,7 @@ class Strategy(Base):
     price_monthly = Column(Float, default=0.0)
     config_json = Column(Text, default="{}") # Store strategy parameters as JSON string
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(CN_TZ))
+    created_at = Column(DateTime, default=lambda: datetime.now(CN_TZ).replace(tzinfo=None))
 
     def __str__(self):
         return self.name
@@ -42,7 +42,7 @@ class Subscription(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     strategy_id = Column(Integer, ForeignKey("strategies.id"))
-    start_date = Column(DateTime, default=lambda: datetime.now(CN_TZ))
+    start_date = Column(DateTime, default=lambda: datetime.now(CN_TZ).replace(tzinfo=None))
     end_date = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
 
@@ -57,7 +57,7 @@ class Signal(Base):
     symbol = Column(String, index=True)
     side = Column(String)  # BUY or SELL
     price = Column(Float)
-    timestamp = Column(DateTime, default=lambda: datetime.now(CN_TZ))
+    timestamp = Column(DateTime, default=lambda: datetime.now(CN_TZ).replace(tzinfo=None))
     reason = Column(String, nullable=True) # e.g., "RSI < 30"
     
     strategy = relationship("Strategy")
