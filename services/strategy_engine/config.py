@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     BINANCE_API_KEY: str = ""
     BINANCE_SECRET_KEY: str = ""
     REDIS_URL: str = "redis://redis:6379/0"
+    PROXY_URL: str = ""
 
     class Config:
         env_file = ".env"

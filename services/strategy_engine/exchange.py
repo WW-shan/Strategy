@@ -25,6 +25,13 @@ class ExchangeManager:
             else:
                 logger.warning("Binance API Key/Secret not found. Initializing in public mode (read-only).")
 
+            if settings.PROXY_URL:
+                config['proxies'] = {
+                    'http': settings.PROXY_URL,
+                    'https': settings.PROXY_URL,
+                }
+                logger.info(f"Using Proxy: {settings.PROXY_URL}")
+
             self.exchange = ccxt.binance(config)
             # Load markets to verify connection
             self.exchange.load_markets()

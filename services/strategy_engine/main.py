@@ -3,6 +3,7 @@ import logging
 import sys
 import json
 import redis
+from sqlalchemy import text
 from database import SessionLocal
 from exchange import exchange_manager
 from config import settings
@@ -81,15 +82,15 @@ def _start_strategy(s_db, running_strategies):
 
 def main():
     logger.info("Strategy Engine Starting...")
-    
     # 1. Test Database Connection
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         logger.info("Database connection successful")
         db.close()
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
+        return.error(f"Database connection failed: {e}")
         return
 
     # 2. Test Exchange Connection
