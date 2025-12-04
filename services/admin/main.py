@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException
 from database import get_db
+from sqlalchemy import func
 import models
 
 # Create tables (for simplicity in dev, use Alembic in prod)
@@ -41,9 +42,24 @@ app = FastAPI(title="Strategy Admin Panel")
 
 # --- SQLAdmin Views ---
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.telegram_id, User.username, User.balance, User.is_active]
+    column_list = [User.id, User.telegram_id, User.username, User.balance, User.is_active, User.subscriptions]
     column_searchable_list = [User.username, User.telegram_id]
+    form_columns = [User.telegram_id, User.username, User.full_name, User.balance, User.is_active]
     icon = "fa-solid fa-user"
+    
+    # async def _format_subscriptions(self, model, attribute):
+    #     """Display subscription strategies for each user"""
+    #     if not model.subscriptions:
+    #         return "无"
+    #     active_subs = [s for s in model.subscriptions if s.is_active]
+    #     if not active_subs:
+    #         return "无"
+    #     strategy_names = ", ".join([s.strategy.name for s in active_subs])
+    #     return strategy_names
+    
+    # column_formatters = {
+    #     "subscriptions": _format_subscriptions
+    # }
 
 class StrategyAdmin(ModelView, model=Strategy):
     column_list = [Strategy.id, Strategy.name, Strategy.price_monthly, Strategy.is_active]
@@ -142,45 +158,53 @@ class SubscriptionCreate(BaseModel):
 
 @app.post("/subscriptions/")
 def create_subscription(sub: SubscriptionCreate, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.telegram_id == sub.telegram_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        # Lock user row to prevent race conditions
+        user = db.query(models.User).filter(models.User.telegram_id == sub.telegram_id).with_for_update().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        strategy = db.query(models.Strategy).filter(models.Strategy.id == sub.strategy_id).first()
+        if not strategy:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+
+        # Double-check: Requery with lock to ensure no concurrent subscription
+        existing = db.query(models.Subscription).filter(
+            models.Subscription.user_id == user.id,
+            models.Subscription.strategy_id == strategy.id,
+            models.Subscription.is_active == True
+        ).with_for_update().first()
+        
+        if existing:
+            return {"message": "Already subscribed", "status": "exists"}
+
+        # Check balance
+        if user.balance < strategy.price_monthly:
+            return {
+                "message": f"Insufficient balance. Required: ${strategy.price_monthly:.2f}, Available: ${user.balance:.2f}",
+                "status": "insufficient_balance",
+                "required": strategy.price_monthly,
+                "available": user.balance
+            }
+
+        # Deduct balance
+        user.balance -= strategy.price_monthly
+        db.add(user)
+
+        # Create subscription
+        new_sub = models.Subscription(
+            user_id=user.id,
+            strategy_id=strategy.id,
+            is_active=True
+        )
+        db.add(new_sub)
+        db.commit()
+        return {"message": "Subscription created", "status": "created", "remaining_balance": user.balance}
     
-    strategy = db.query(models.Strategy).filter(models.Strategy.id == sub.strategy_id).first()
-    if not strategy:
-        raise HTTPException(status_code=404, detail="Strategy not found")
-
-    # Check existing
-    existing = db.query(models.Subscription).filter(
-        models.Subscription.user_id == user.id,
-        models.Subscription.strategy_id == strategy.id,
-        models.Subscription.is_active == True
-    ).first()
-    
-    if existing:
-        return {"message": "Already subscribed", "status": "exists"}
-
-    # Check balance
-    if user.balance < strategy.price_monthly:
-        return {
-            "message": f"Insufficient balance. Required: ${strategy.price_monthly:.2f}, Available: ${user.balance:.2f}",
-            "status": "insufficient_balance",
-            "required": strategy.price_monthly,
-            "available": user.balance
-        }
-
-    # Deduct balance
-    user.balance -= strategy.price_monthly
-    db.add(user)
-
-    # Create subscription
-    new_sub = models.Subscription(
-        user_id=user.id,
-        strategy_id=strategy.id,
-        is_active=True
-    )
-    db.add(new_sub)
-    db.commit()
-    return {"message": "Subscription created", "status": "created", "remaining_balance": user.balance}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 

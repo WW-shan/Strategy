@@ -53,12 +53,12 @@ class SignalListener:
             timestamp = html.escape(signal_data.get('timestamp', 'N/A'))
             
             text = (
-                f"🚨 <b>Signal Alert: {strategy_name}</b>\n\n"
-                f"Symbol: <b>{symbol}</b>\n"
-                f"Side: <b>{side}</b>\n"
-                f"Price: <code>{price}</code>\n"
-                f"Reason: <code>{reason}</code>\n"
-                f"Time: <code>{timestamp}</code>"
+                f"🚨 <b>策略信号: {strategy_name}</b>\n\n"
+                f"交易对: <b>{symbol}</b>\n"
+                f"方向: <b>{side}</b>\n"
+                f"价格: <code>{price}</code>\n"
+                f"理由: <code>{reason}</code>\n"
+                f"时间: <code>{timestamp}</code>"
             )
 
             # Fetch subscribed users from Admin API

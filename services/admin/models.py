@@ -46,6 +46,11 @@ class Subscription(Base):
     user = relationship("User", back_populates="subscriptions")
     strategy = relationship("Strategy")
 
+    def __str__(self):
+        status = "Active" if self.is_active else "Inactive"
+        end = self.end_date.strftime("%Y-%m-%d") if self.end_date else "Lifetime"
+        return f"{self.strategy.name} ({status}, ends: {end})"
+
 class Signal(Base):
     __tablename__ = "signals"
 

@@ -19,7 +19,7 @@ class RsiStrategy(BaseStrategy):
         self.rsi_overbought = int(config.get('rsi_overbought', 70))
         self.rsi_oversold = int(config.get('rsi_oversold', 30))
         
-        self.last_signal = None # To avoid repeating signals
+        self.last_signal_rsi = None  # 记录上次信号时的RSI状态（0=正常, 1=超卖, 2=超买）
 
     def start(self):
         self.is_running = True
@@ -61,16 +61,19 @@ class RsiStrategy(BaseStrategy):
             # 3. Generate Signal
             signal_side = None
             reason = ""
+            current_rsi_state = 0  # 0=正常, 1=超卖, 2=超买
 
             if current_rsi < self.rsi_oversold:
                 signal_side = "BUY"
+                current_rsi_state = 1  # 超卖状态
                 reason = f"RSI ({current_rsi:.2f}) < {self.rsi_oversold} (Oversold)"
             elif current_rsi > self.rsi_overbought:
                 signal_side = "SELL"
+                current_rsi_state = 2  # 超买状态
                 reason = f"RSI ({current_rsi:.2f}) > {self.rsi_overbought} (Overbought)"
 
-            # 4. Publish Signal if new
-            if signal_side and signal_side != self.last_signal:
+            # 4. Publish Signal if RSI state changed (entered oversold/overbought)
+            if signal_side and current_rsi_state != self.last_signal_rsi:
                 self.log(f"SIGNAL GENERATED: {signal_side} @ {current_price}")
                 
                 signal_data = {
@@ -86,7 +89,7 @@ class RsiStrategy(BaseStrategy):
                 # Call the callback function to handle the signal (save to DB, publish to Redis)
                 self.signal_callback(signal_data)
                 
-                self.last_signal = signal_side
+                self.last_signal_rsi = current_rsi_state
 
         except Exception as e:
             logger.error(f"Error in RSI Strategy on_tick: {e}")
