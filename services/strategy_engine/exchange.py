@@ -10,24 +10,28 @@ class ExchangeManager:
         self._init_exchange()
 
     def _init_exchange(self):
-        if not settings.BINANCE_API_KEY or not settings.BINANCE_SECRET_KEY:
-            logger.warning("Binance API Key or Secret not found. Exchange functionality will be limited.")
-            return
-
         try:
-            self.exchange = ccxt.binance({
-                'apiKey': settings.BINANCE_API_KEY,
-                'secret': settings.BINANCE_SECRET_KEY,
+            config = {
                 'enableRateLimit': True,
                 'options': {
                     'defaultType': 'future',  # Default to futures trading
                 }
-            })
+            }
+            
+            if settings.BINANCE_API_KEY and settings.BINANCE_SECRET_KEY:
+                config['apiKey'] = settings.BINANCE_API_KEY
+                config['secret'] = settings.BINANCE_SECRET_KEY
+                logger.info("Initializing Binance with API keys")
+            else:
+                logger.warning("Binance API Key/Secret not found. Initializing in public mode (read-only).")
+
+            self.exchange = ccxt.binance(config)
             # Load markets to verify connection
             self.exchange.load_markets()
             logger.info("Successfully connected to Binance Futures")
         except Exception as e:
             logger.error(f"Failed to connect to Binance: {e}")
+            self.exchange = None
             self.exchange = None
 
     def get_ticker(self, symbol: str):
