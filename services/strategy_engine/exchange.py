@@ -22,7 +22,15 @@ class ExchangeManager:
                 }
             }
             
-            if settings.BINANCE_API_KEY and settings.BINANCE_SECRET_KEY:
+            # 只有当密钥存在且非空时才添加认证
+            has_credentials = (
+                settings.BINANCE_API_KEY and 
+                settings.BINANCE_SECRET_KEY and 
+                settings.BINANCE_API_KEY.strip() and 
+                settings.BINANCE_SECRET_KEY.strip()
+            )
+            
+            if has_credentials:
                 config['apiKey'] = settings.BINANCE_API_KEY
                 config['secret'] = settings.BINANCE_SECRET_KEY
                 logger.info("Initializing Binance with API keys")
@@ -40,7 +48,7 @@ class ExchangeManager:
             binance.load_markets()
             self.exchanges['binance'] = binance
             self.primary_exchange = binance  # 设置为主交易所
-            logger.info("✅ Successfully connected to Binance Futures")
+            logger.info("✅ Successfully connected to Binance (Public Mode)" if not has_credentials else "✅ Successfully connected to Binance Futures")
         except Exception as e:
             logger.error(f"❌ Failed to connect to Binance: {e}", exc_info=True)
         
@@ -53,7 +61,17 @@ class ExchangeManager:
                 }
             }
             
-            if settings.BITGET_API_KEY and settings.BITGET_SECRET_KEY and settings.BITGET_PASSPHRASE:
+            # 只有当密钥存在且非空时才添加认证
+            has_credentials = (
+                settings.BITGET_API_KEY and 
+                settings.BITGET_SECRET_KEY and 
+                settings.BITGET_PASSPHRASE and
+                settings.BITGET_API_KEY.strip() and 
+                settings.BITGET_SECRET_KEY.strip() and
+                settings.BITGET_PASSPHRASE.strip()
+            )
+            
+            if has_credentials:
                 config['apiKey'] = settings.BITGET_API_KEY
                 config['secret'] = settings.BITGET_SECRET_KEY
                 config['password'] = settings.BITGET_PASSPHRASE
@@ -71,9 +89,15 @@ class ExchangeManager:
             bitget = ccxt.bitget(config)
             bitget.load_markets()
             self.exchanges['bitget'] = bitget
-            logger.info("✅ Successfully connected to Bitget Futures")
+            logger.info("✅ Successfully connected to Bitget (Public Mode)" if not has_credentials else "✅ Successfully connected to Bitget Futures")
         except Exception as e:
             logger.error(f"❌ Failed to connect to Bitget: {e}", exc_info=True)
+        
+        # 检查是否至少有一个交易所可用
+        if not self.exchanges:
+            logger.critical("❌❌❌ CRITICAL: No exchanges initialized! Check logs above for errors.")
+        else:
+            logger.info(f"📊 Initialized exchanges: {list(self.exchanges.keys())}")
 
     def get_exchange(self, exchange_name: str = 'binance'):
         """获取指定交易所实例"""
