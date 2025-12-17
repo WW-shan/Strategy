@@ -73,4 +73,5 @@ else
 fi
 
 # 启动 PostgreSQL
-exec docker-entrypoint.sh postgres "$@"
+# 不传递 $@ 因为 command 参数已经在 docker-stack.yml 中定义
+exec docker-entrypoint.sh "$@"

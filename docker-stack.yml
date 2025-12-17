@@ -210,7 +210,7 @@ configs:
     name: init_replication_script_v6
     file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
   primary_custom_entrypoint:
-    name: primary_custom_entrypoint_v1
+    name: primary_custom_entrypoint_v2
     file: ./deploy/vps_primary/custom_entrypoint.sh
   replica_entrypoint_script:
     name: replica_entrypoint_script_v5
