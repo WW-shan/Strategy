@@ -44,7 +44,7 @@ configure_pg_hba
 echo "pg_hba.conf 配置完成"
 
 # 后台启动 PostgreSQL
-postgres "$@" &
+docker-entrypoint.sh postgres "$@" &
 PG_PID=$!
 
 # 等待就绪
