@@ -85,6 +85,10 @@ services:
       - source: init_replication_script
         target: /docker-entrypoint-initdb.d/01_init_replication.sh
         mode: 0755
+      - source: primary_custom_entrypoint
+        target: /custom_entrypoint.sh
+        mode: 0755
+    entrypoint: ["bash", "/custom_entrypoint.sh"]
     ports:
       - "5432:5432"
     networks:
@@ -97,7 +101,15 @@ services:
       update_config:
         order: stop-first
       restart_policy:
-        condition: on-failure
+        condition: any
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
     stop_grace_period: 1m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -180,6 +192,9 @@ configs:
   init_replication_script:
     name: init_replication_script_v6
     file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
+  primary_custom_entrypoint:
+    name: primary_custom_entrypoint_v1
+    file: ./deploy/vps_primary/custom_entrypoint.sh
   replica_entrypoint_script:
     name: replica_entrypoint_script_v5
     file: ./deploy/vps_replica/entrypoint.sh
