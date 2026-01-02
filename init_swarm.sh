@@ -12,15 +12,15 @@ else
 fi
 
 SSH_USER="${VPS_USER:-root}"
-MANAGER_IP="$VPS_REPLICA_IP"
+MANAGER_IP="$VPS_APP_IP"
 
 if [ -z "$MANAGER_IP" ] || [ "$MANAGER_IP" == "x.x.x.x" ]; then
-    echo "❌ 错误：VPS_REPLICA_IP 未在 .env 中配置，无法确定 Manager 节点。"
+    echo "❌ 错误：VPS_APP_IP 未在 .env 中配置，无法确定 Manager 节点。"
     exit 1
 fi
 
 echo "🚀 开始初始化 Swarm 集群..."
-echo "   👑 Manager 节点: $MANAGER_IP (Replica VPS)"
+echo "   👑 Manager 节点: $MANAGER_IP (App + Primary DB VPS)"
 echo "   👤 SSH 用户: $SSH_USER"
 
 # ==========================================
@@ -41,10 +41,10 @@ fi
 WORKER_TOKEN=$(docker swarm join-token worker -q)
 echo "   🔑 Worker Token: $WORKER_TOKEN"
 
-# 给 Manager 节点打标签 (role=replica_db)
+# 给 Manager 节点打标签 (role=app)
 MANAGER_ID=$(docker info -f '{{.Swarm.NodeID}}')
-echo "   🏷️  正在给 Manager ($MANAGER_ID) 打标签: role=replica_db"
-docker node update --label-add role=replica_db $MANAGER_ID
+echo "   🏷️  正在给 Manager ($MANAGER_ID) 打标签: role=app"
+docker node update --label-add role=app $MANAGER_ID
 
 # ==========================================
 # 2. 定义添加 Worker 的函数
@@ -88,9 +88,8 @@ add_worker() {
 # ==========================================
 # 3. 添加所有节点
 # ==========================================
-add_worker "$VPS_APP_IP"      "app"        "应用服务器 (App)"
-add_worker "$VPS_PRIMARY_IP"  "primary_db" "主数据库 (Primary)"
-add_worker "$VPS_STRATEGY_IP" "strategy"   "策略引擎 (Strategy)"
+# 仅需添加 Strategy 节点作为 Worker（承载 Replica DB 与策略引擎）
+add_worker "$VPS_STRATEGY_IP" "strategy" "策略引擎 + Replica DB"
 
 echo "---------------------------------------------------"
 echo "🎉 集群初始化完成！"

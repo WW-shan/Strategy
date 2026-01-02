@@ -85,15 +85,13 @@ services:
       - source: init_replication_script
         target: /docker-entrypoint-initdb.d/01_init_replication.sh
         mode: 0755
-    ports:
-      - "5432:5432"
     networks:
       - strategy_overlay_net
     command: "postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on -c max_connections=50 -c log_min_duration_statement=1000 -c log_line_prefix='%t [%p] %u@%d: '"
     deploy:
       replicas: 1
       placement:
-        constraints: [node.labels.role == primary_db]
+        constraints: [node.labels.role == app]
       update_config:
         order: stop-first
       restart_policy:
@@ -129,7 +127,7 @@ services:
     deploy:
       replicas: 1
       placement:
-        constraints: [node.labels.role == replica_db]
+        constraints: [node.labels.role == strategy]
       restart_policy:
         condition: on-failure
     healthcheck:
