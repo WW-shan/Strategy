@@ -259,22 +259,22 @@ def main():
 
         if not running_strategies:
             logger.warning("No active strategies running.")
-
-        # --- Run Logic (Parallel Execution) ---
-        # 使用线程池并发执行所有策略，避免单个策略卡住整个引擎
-        with ThreadPoolExecutor(max_workers=min(len(running_strategies), 10)) as executor:
-            futures = {}
-            for strategy_id, s_entry in running_strategies.items():
-                future = executor.submit(s_entry['instance'].on_tick)
-                futures[future] = strategy_id
-            
-            # 等待所有策略执行完成（设置超时）
-            for future in as_completed(futures, timeout=50):
-                strategy_id = futures[future]
-                try:
-                    future.result()
-                except Exception as e:
-                    logger.error(f"Error in strategy {strategy_id} tick: {e}")
+        else:
+            # --- Run Logic (Parallel Execution) ---
+            # 使用线程池并发执行所有策略,避免单个策略卡住整个引擎
+            with ThreadPoolExecutor(max_workers=min(len(running_strategies), 10)) as executor:
+                futures = {}
+                for strategy_id, s_entry in running_strategies.items():
+                    future = executor.submit(s_entry['instance'].on_tick)
+                    futures[future] = strategy_id
+                
+                # 等待所有策略执行完成（设置超时）
+                for future in as_completed(futures, timeout=50):
+                    strategy_id = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        logger.error(f"Error in strategy {strategy_id} tick: {e}")
 
         time.sleep(60) # Loop every minute
 
