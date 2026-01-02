@@ -33,14 +33,24 @@ host    replication     replicator      172.16.0.0/12           scram-sha-256
 host    all             all             172.16.0.0/12           scram-sha-256
 EOF
 
-# 添加 VPS IP 白名单
-[ ! -z "$VPS_REPLICA_IP" ] && cat >> "$PG_HBA" <<EOF
-host    replication     replicator      $VPS_REPLICA_IP/32      scram-sha-256
-host    all             all             $VPS_REPLICA_IP/32      scram-sha-256
-EOF
+# 仅当提供了合法 IPv4 地址时才追加白名单，避免占位符污染 pg_hba.conf
+append_ip_rule() {
+    local ip="$1"
+    local rule="$2"
 
-[ ! -z "$VPS_APP_IP" ] && echo "host    all             all             $VPS_APP_IP/32              scram-sha-256" >> "$PG_HBA"
-[ ! -z "$VPS_STRATEGY_IP" ] && echo "host    all             all             $VPS_STRATEGY_IP/32         scram-sha-256" >> "$PG_HBA"
+    # 粗略校验 IPv4（避免 x.x.x.x 这类占位符）
+    if [[ -n "$ip" && "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        echo "$rule" >> "$PG_HBA"
+    else
+        echo "跳过无效 IP: '$ip'" >&2
+    fi
+}
+
+# 添加 VPS IP 白名单（仅在 IP 合法时）
+append_ip_rule "$VPS_REPLICA_IP" "host    replication     replicator      $VPS_REPLICA_IP/32      scram-sha-256"
+append_ip_rule "$VPS_REPLICA_IP" "host    all             all             $VPS_REPLICA_IP/32      scram-sha-256"
+append_ip_rule "$VPS_APP_IP"     "host    all             all             $VPS_APP_IP/32              scram-sha-256"
+append_ip_rule "$VPS_STRATEGY_IP" "host    all             all             $VPS_STRATEGY_IP/32         scram-sha-256"
 
 # 拒绝所有其他连接
 echo "host    all             all             0.0.0.0/0                   reject" >> "$PG_HBA"

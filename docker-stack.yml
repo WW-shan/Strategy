@@ -201,7 +201,7 @@ volumes:
 
 configs:
   init_replication_script:
-    name: init_replication_script_v12
+    name: init_replication_script_v13
     file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
   replica_entrypoint_script:
     name: replica_entrypoint_script_v8
