@@ -87,7 +87,24 @@ services:
         mode: 0755
     networks:
       - strategy_overlay_net
-    command: "postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on -c max_connections=50 -c log_min_duration_statement=1000 -c log_line_prefix='%t [%p] %u@%d: '"
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - hot_standby=on
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - hot_standby_feedback=on
+      - -c
+      - max_connections=50
+      - -c
+      - log_min_duration_statement=1000
+      - -c
+      - "log_line_prefix=%t [%p] %u@%d: "
     deploy:
       replicas: 1
       placement:
@@ -95,7 +112,15 @@ services:
       update_config:
         order: stop-first
       restart_policy:
-        condition: on-failure
+        condition: any
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
     stop_grace_period: 1m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -176,8 +201,11 @@ volumes:
 
 configs:
   init_replication_script:
-    name: init_replication_script_v6
+    name: init_replication_script_v12
     file: ./deploy/vps_primary/init_scripts/01_init_replication.sh
+  primary_custom_entrypoint:
+    name: primary_custom_entrypoint_v12
+    file: ./deploy/vps_primary/custom_entrypoint.sh
   replica_entrypoint_script:
-    name: replica_entrypoint_script_v5
+    name: replica_entrypoint_script_v8
     file: ./deploy/vps_replica/entrypoint.sh

@@ -1,43 +1,48 @@
 #!/bin/bash
 set -e
 
-# Create replication user
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD '$REPLICATOR_PASSWORD';
+echo "初始化 replication 用户和 pg_hba.conf..."
+
+# Create replication user (如果不存在)
+psql -v ON_ERROR_STOP=0 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    DO \$\$
+    BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'replicator') THEN
+            CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD '$REPLICATOR_PASSWORD';
+            RAISE NOTICE 'replicator 用户已创建';
+        ELSE
+            RAISE NOTICE 'replicator 用户已存在';
+        END IF;
+    END \$\$;
 EOSQL
 
-# Configure host based authentication with RESTRICTIVE rules
-# Remove ALL default permissive rules
-sed -i '/^host.*all.*all.*all/d' /var/lib/postgresql/data/pg_hba.conf
-sed -i '/host.*all.*all.*0.0.0.0\/0/d' /var/lib/postgresql/data/pg_hba.conf
-sed -i '/host.*all.*all.*::\/0/d' /var/lib/postgresql/data/pg_hba.conf
+# 配置 pg_hba.conf
+PG_HBA="/var/lib/postgresql/data/pg_hba.conf"
 
-# 白名单策略 - 只允许集群内的服务器访问
-# 1. Docker 内部网络
-echo "host replication replicator 10.0.0.0/8 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
-echo "host all all 10.0.0.0/8 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
+# 清除默认的不安全规则
+sed -i '/^host.*all.*all.*0.0.0.0\/0/d' "$PG_HBA"
+sed -i '/^host.*all.*all.*::\/0/d' "$PG_HBA"
 
-# 2. 允许本机访问(主库自己)
-echo "host all all 127.0.0.1/32 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
+# 添加安全的白名单规则
+cat >> "$PG_HBA" <<EOF
 
-# 注意: 下面需要在 docker-stack.yml 中传入环境变量
-# VPS_PRIMARY_IP, VPS_APP_IP, VPS_REPLICA_IP, VPS_STRATEGY_IP
+# Docker 内部网络
+host    replication     replicator      10.0.0.0/8              scram-sha-256
+host    all             all             10.0.0.0/8              scram-sha-256
+host    replication     replicator      172.16.0.0/12           scram-sha-256
+host    all             all             172.16.0.0/12           scram-sha-256
+EOF
 
-# 3. 允许从库服务器 (使用环境变量,在运行时替换)
-if [ ! -z "$VPS_REPLICA_IP" ]; then
-    echo "host replication replicator $VPS_REPLICA_IP/32 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
-    echo "host all all $VPS_REPLICA_IP/32 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
-fi
+# 添加 VPS IP 白名单
+[ ! -z "$VPS_REPLICA_IP" ] && cat >> "$PG_HBA" <<EOF
+host    replication     replicator      $VPS_REPLICA_IP/32      scram-sha-256
+host    all             all             $VPS_REPLICA_IP/32      scram-sha-256
+EOF
 
-# 4. 允许应用服务器
-if [ ! -z "$VPS_APP_IP" ]; then
-    echo "host all all $VPS_APP_IP/32 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
-fi
+[ ! -z "$VPS_APP_IP" ] && echo "host    all             all             $VPS_APP_IP/32              scram-sha-256" >> "$PG_HBA"
+[ ! -z "$VPS_STRATEGY_IP" ] && echo "host    all             all             $VPS_STRATEGY_IP/32         scram-sha-256" >> "$PG_HBA"
 
-# 5. 允许策略服务器
-if [ ! -z "$VPS_STRATEGY_IP" ]; then
-    echo "host all all $VPS_STRATEGY_IP/32 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
-fi
+# 拒绝所有其他连接
+echo "host    all             all             0.0.0.0/0                   reject" >> "$PG_HBA"
 
-# 6. 拒绝所有其他IP (阻止攻击者)
-echo "host all all 0.0.0.0/0 reject" >> /var/lib/postgresql/data/pg_hba.conf
+echo "初始化完成"

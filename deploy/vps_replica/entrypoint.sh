@@ -31,6 +31,16 @@ fi
 
 echo "Using PRIMARY_HOST=$PRIMARY_HOST"
 
+# 检查数据目录是否已初始化
+if [ -s "/var/lib/postgresql/data/PG_VERSION" ]; then
+    echo "=== Replica already initialized ==="
+    echo "Data directory exists, skipping base backup"
+    echo "Starting PostgreSQL as Replica..."
+    exec docker-entrypoint.sh postgres -c hot_standby=on
+fi
+
+echo "=== Initializing new replica ==="
+
 until pg_isready -h "$PRIMARY_HOST" -p 5432 -U replicator
 do
   echo "Waiting for primary database... (pg_isready returned $?)"
@@ -44,4 +54,4 @@ echo "Starting Base Backup from $PRIMARY_HOST..."
 pg_basebackup -h $PRIMARY_HOST -p 5432 -D /var/lib/postgresql/data -U replicator -v -P -X stream -R
 
 echo "Backup complete. Starting PostgreSQL as Replica..."
-exec docker-entrypoint.sh postgres
+exec docker-entrypoint.sh postgres -c hot_standby=on
